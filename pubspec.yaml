@@ -1,0 +1,42 @@
+name: nekios_remote
+description: "Remote HP untuk display Nekios (nekios-school): kendali mading, simulasi jam, logo, dan jadwal lewat WebSocket lokal."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Protokol bersama ekosistem Nekios (envelope paket, codec,
+  # klien WebSocket) — repo PUBLIK, jadi CI bisa me-resolve
+  # dependensi git HTTPS ini tanpa kredensial.
+  nekios_core:
+    git:
+      url: https://github.com/nyanpoketto-kujira/nekios-core.git
+      ref: main
+
+  # Daftar display tersimpan + IP terakhir (auto-save).
+  shared_preferences: ^2.3.2
+
+  # Pilih gambar logo dari galeri.
+  image_picker: ^1.1.2
+
+  # Peramping gambar logo (maks 512px) sebelum dikirim base64.
+  image: ^4.3.0
+
+  # Pilih berkas JSON jadwal untuk dikirim ke display.
+  file_picker: ^8.1.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
