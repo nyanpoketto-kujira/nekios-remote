@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'layanan/klien_remote.dart';
 import 'layanan/penyimpanan.dart';
+import 'layanan/penyelidik.dart';
 import 'masjid/tautan_bt.dart';
 import 'masjid/transport_masjid.dart';
 import 'masjid/transport_masjid_bt.dart';
 import 'state/remote_store.dart';
+import 'state/sesi.dart';
 import 'state/store_masjid.dart';
 
 Future<void> main() async {
@@ -24,7 +26,18 @@ Future<void> main() async {
         ? TransportMasjidBt(tautan)
         : TransportMasjidWs(),
   );
+  // Sesi = penjaga gateway + auto-detect + shell dinamis (ADR-004).
+  final sesi = SesiRemote(
+    storeSekolah: store,
+    storeMasjid: storeMasjid,
+    pendeteksi: PendekteksiDisplay.bawaan(),
+  );
   runApp(
-    NekiosRemoteApp(store: store, storeMasjid: storeMasjid, tautan: tautan),
+    NekiosRemoteApp(
+      store: store,
+      storeMasjid: storeMasjid,
+      sesi: sesi,
+      tautan: tautan,
+    ),
   );
 }

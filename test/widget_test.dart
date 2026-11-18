@@ -7,7 +7,6 @@ import 'package:nekios_remote/state/remote_store.dart';
 import 'package:nekios_remote/state/store_masjid.dart';
 import 'package:nekios_remote/tema.dart';
 import 'package:nekios_remote/ui/layar_beranda.dart';
-import 'package:nekios_remote/ui/layar_koneksi.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'klien_palsu.dart';
@@ -46,37 +45,8 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   }
 
-  testWidgets('layar koneksi: display tersimpan tampil, ketuk menyambung', (
-    tester,
-  ) async {
-    await siapkan(tester);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: temaNekios(Brightness.light),
-        home: Scaffold(
-          body: LayarKoneksi(
-            store: store,
-            storeMasjid: storeMasjid,
-            tautan: tautan,
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.text('TV Pameran'), findsOneWidget);
-    expect(find.text('Sekolah · 192.168.1.20:8920'), findsOneWidget);
-    expect(find.text('Terputus'), findsWidgets);
-
-    await tester.tap(find.text('TV Pameran'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-
-    expect(store.terhubung, isTrue);
-    expect(find.text('Terhubung'), findsWidgets);
-
-    await bersihkan(tester);
-  });
+  // Test layar koneksi lama digantikan cakupan gateway di
+  // gateway_widget_test.dart (ADR-004).
 
   testWidgets('layar beranda: cermin snapshot + badge SIMULASI', (
     tester,

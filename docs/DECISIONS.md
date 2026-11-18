@@ -221,3 +221,65 @@ RFCOMM fisik, alur izin Android 12+, dan discovery — logika
 protokolnya (framing/auth/chunk/store) teruji unit penuh, dan
 transport diuji melawan tautan palsu + server WebSocket lokal.
 Verifikasi rig (emulator) adalah tahap M3.
+
+## ADR-004: Gateway, auto-detect & shell dinamis (koreksi arsitektur, 2026-11-18)
+
+**Konteks.** ADR-003 butir 6 membuat tab Koneksi dipakai bersama dan
+shell mengikuti sambungan terakhir — pengguna tetap harus memilih
+jenis display (Sekolah/Masjid) saat menambah display, dan tab
+dashboard tampil walau belum terhubung. Pemilik produk mengoreksi
+empat hal mendasar (meniru alur gateway mobile_remote masjid-you
+yang sudah teruji): dashboard tidak boleh bisa dicapai sebelum
+koneksi sukses; pengguna tidak boleh disuruh berpikir jenis
+display; shell harus khusus per jenis display; Bluetooth adalah
+jalur penyelamat yang wajib setara Wi-Fi.
+
+**Keputusan.**
+1. **Connection guard / Gateway sebagai akar.** `LayarUtama`
+   memilih secara keras: tidak ada store terhubung →
+   `LayarGateway`; `RemoteStore` terhubung → shell sekolah;
+   `MasjidStore` terhubung → shell masjid. Tab Koneksi DIHAPUS;
+   urusan koneksi di dalam shell menyusut menjadi strip status
+   (nama display + jalur) dengan tombol Putuskan. Putus — sengaja
+   maupun tak terduga — otomatis kembali ke gateway.
+2. **Auto-detect via probing paralel.** Menyambung lewat IP hanya
+   meminta alamat IP. `PendekteksiDisplay` (`layanan/penyelidik.dart`)
+   menyelidiki DUA protokol bersamaan: nekios-core `ping` →
+   `state.snapshot` di 8920 dan warisan masjid `getInitialState` →
+   `stateSnapshot` di 8080. Jawaban valid pertama menentukan
+   identitas; nama display diambil dari payload identitas itu
+   (nama sekolah pada ringkasan jadwal / nama masjid pada
+   konfigurasi). Keduanya senyap → kegagalan jujur di gateway.
+   Penyelidikan memakai koneksi sekali-pakai yang selalu ditutup;
+   sesi sungguhan dibuka store seperti biasa.
+3. **Riwayat lahir dari bukti, bukan formulir.** Dialog tambah
+   display (dengan pemilih tipe/transport) dihapus. Entri
+   `DisplayTersimpan` dibuat/diupdate `SesiRemote` hanya setelah
+   deteksi terbukti DAN store berhasil terhubung, atau setelah
+   koneksi Bluetooth lolos. Field `tipe` kini berarti "hasil
+   deteksi terakhir", bukan pilihan pengguna. IP yang sudah
+   tersimpan disambung langsung tanpa deteksi ulang (jalur cepat,
+   setara "Perangkat Dikenal" mobile_remote). Dialog Ubah hanya
+   menyunting nama/IP/PIN.
+4. **Orkestrasi sesi tunggal.** Kelas baru `SesiRemote`
+   (`state/sesi.dart`) adalah satu-satunya pemanggil sambung/putus
+   dari UI: ia menjalankan deteksi, memilih store menurut hasil,
+   menyimpan riwayat, mengubah putus tak terduga menjadi
+   pemberitahuan gateway + tombol sambungkan-ulang (pola
+   `_handleTransportDisconnected` mobile_remote), dan menjaga
+   invariant satu sesi (store lawan diputuskan senyap bila perlu).
+   Kedua store mempertahankan kontrak ADR-001/003 apa adanya.
+5. **Dual transport di gateway.** Kartu Bluetooth berisi perangkat
+   dikenal (entri BT tersimpan, 1 ketuk, PIN tersimpan) dan
+   pencarian perangkat (discovery → dialog PIN → auth). Kanal BT
+   yang lolos auth hari ini selalu masjid — satu-satunya host
+   RFCOMM yang ada; bila host BT sekolah (nekios-core di dalam
+   RFCOMM) tiba, klasifikasi dilakukan dengan probing protokol
+   yang sama di dalam kanal, tanpa mengubah gateway.
+
+**Konsekuensi.** ADR-003 butir 6 (tab Koneksi bersama + pemilih
+tipe manual) DICABUT. `LayarKoneksi` dihapus; cakupan testnya
+pindah ke `gateway_widget_test.dart`, ditambah `deteksi_test.dart`
+(probing paralel) dan `sesi_test.dart` (orkestrasi). Sesi paralel
+dua display sekaligus (yang dulu mungkin lewat tab Koneksi) tidak
+lagi didukung — sesuai model gateway satu-display-aktif.

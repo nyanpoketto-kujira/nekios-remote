@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:nekios_core/nekios_core.dart';
 
 import 'masjid/tautan_bt.dart';
+import 'masjid/transport_masjid.dart';
+import 'model/display_tersimpan.dart';
 import 'state/remote_store.dart';
+import 'state/sesi.dart';
 import 'state/store_masjid.dart';
 import 'tema.dart';
 import 'ui/layar_beranda.dart';
 import 'ui/layar_beranda_masjid.dart';
+import 'ui/layar_gateway.dart';
 import 'ui/layar_jadwal.dart';
-import 'ui/layar_koneksi.dart';
 import 'ui/layar_logo.dart';
 import 'ui/layar_mading.dart';
 import 'ui/layar_simulasi.dart';
@@ -20,11 +24,13 @@ class NekiosRemoteApp extends StatelessWidget {
     super.key,
     required this.store,
     required this.storeMasjid,
+    required this.sesi,
     required this.tautan,
   });
 
   final RemoteStore store;
   final MasjidStore storeMasjid;
+  final SesiRemote sesi;
   final TautanBluetooth tautan;
 
   @override
@@ -34,74 +40,123 @@ class NekiosRemoteApp extends StatelessWidget {
       theme: temaNekios(Brightness.light),
       darkTheme: temaNekios(Brightness.dark),
       themeMode: ThemeMode.system,
-      home: LayarUtama(store: store, storeMasjid: storeMasjid, tautan: tautan),
+      home: LayarUtama(
+        store: store,
+        storeMasjid: storeMasjid,
+        sesi: sesi,
+        tautan: tautan,
+      ),
     );
   }
 }
 
-/// Kerangka utama remote pusat: tab Koneksi dipakai bersama, lalu
-/// shell mengikuti tipe display yang terakhir disambungkan —
-/// shell SEKOLAH (Beranda, Mading, Simulasi, Logo, Jadwal) atau
-/// shell MASJID (Beranda; Konten/Pengaturan/Tes masih placeholder
-/// tahap berikutnya, Rute A tahap A1).
-class LayarUtama extends StatefulWidget {
+/// Penjaga akar aplikasi (connection guard + dynamic shell, ADR-004):
+/// * tidak ada store terhubung → [LayarGateway] (satu-satunya jalan
+///   masuk; dashboard tidak bisa dicapai sebelum koneksi sukses);
+/// * [RemoteStore] terhubung → shell SEKOLAH;
+/// * [MasjidStore] terhubung → shell MASJID.
+/// Putus (sengaja atau tak terduga) mengembalikan tampilan ke
+/// gateway secara otomatis karena tidak ada lagi store terhubung.
+class LayarUtama extends StatelessWidget {
   const LayarUtama({
     super.key,
     required this.store,
     required this.storeMasjid,
+    required this.sesi,
     required this.tautan,
   });
 
   final RemoteStore store;
   final MasjidStore storeMasjid;
+  final SesiRemote sesi;
   final TautanBluetooth tautan;
 
   @override
-  State<LayarUtama> createState() => _LayarUtamaState();
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([store, storeMasjid, sesi]),
+      builder: (context, _) {
+        if (store.terhubung) {
+          return _ShellSekolah(store: store, sesi: sesi);
+        }
+        if (storeMasjid.terhubung) {
+          return _ShellMasjid(store: storeMasjid, sesi: sesi);
+        }
+        return LayarGateway(sesi: sesi, tautan: tautan);
+      },
+    );
+  }
 }
 
-class _LayarUtamaState extends State<LayarUtama> {
-  int _tab = 0;
-  bool _shellMasjid = false;
+/// Strip status koneksi di puncak shell: display aktif + jalur,
+/// dan aksi Putuskan (kembali ke gateway). Menggantikan tab Koneksi
+/// lama — urusan menyambung sepenuhnya milik gateway.
+class _StripKoneksi extends StatelessWidget {
+  const _StripKoneksi({
+    required this.nama,
+    required this.keterangan,
+    required this.onPutus,
+  });
 
-  RemoteStore get store => widget.store;
-  MasjidStore get storeMasjid => widget.storeMasjid;
-
-  @override
-  void initState() {
-    super.initState();
-    store.addListener(_ikutiKoneksi);
-    storeMasjid.addListener(_ikutiKoneksi);
-  }
-
-  @override
-  void dispose() {
-    store.removeListener(_ikutiKoneksi);
-    storeMasjid.removeListener(_ikutiKoneksi);
-    super.dispose();
-  }
-
-  /// Shell mengikuti sambungan yang paling baru MULAI menyambung.
-  void _ikutiKoneksi() {
-    if (!mounted) return;
-    var target = _shellMasjid;
-    if (storeMasjid.statusKoneksi == StatusKoneksi.menyambung) {
-      target = true;
-    } else if (store.statusKoneksi == StatusKoneksi.menyambung) {
-      target = false;
-    }
-    if (target != _shellMasjid) {
-      setState(() {
-        _shellMasjid = target;
-        _tab = 0;
-      });
-    }
-  }
+  final String nama;
+  final String keterangan;
+  final VoidCallback onPutus;
 
   @override
   Widget build(BuildContext context) {
-    final halaman = _shellMasjid ? _halamanMasjid() : _halamanSekolah();
-    final tujuan = _shellMasjid ? _tujuanMasjid : _tujuanSekolah;
+    final skema = Theme.of(context).colorScheme;
+    return Material(
+      color: skema.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Row(
+          children: [
+            Icon(Icons.tv_outlined, size: 20, color: skema.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Terhubung ke $nama · $keterangan',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: onPutus,
+              icon: const Icon(Icons.link_off, size: 18),
+              label: const Text('Putuskan'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shell SEKOLAH: Beranda, Mading, Simulasi, Logo, Jadwal.
+class _ShellSekolah extends StatefulWidget {
+  const _ShellSekolah({required this.store, required this.sesi});
+
+  final RemoteStore store;
+  final SesiRemote sesi;
+
+  @override
+  State<_ShellSekolah> createState() => _ShellSekolahState();
+}
+
+class _ShellSekolahState extends State<_ShellSekolah> {
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final halaman = [
+      LayarBeranda(store: store),
+      LayarMading(store: store),
+      LayarSimulasi(store: store),
+      LayarLogo(store: store),
+      LayarJadwal(store: store),
+    ];
     final tabAman = _tab >= halaman.length ? 0 : _tab;
     return Scaffold(
       appBar: AppBar(
@@ -109,118 +164,150 @@ class _LayarUtamaState extends State<LayarUtama> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
-            child: ListenableBuilder(
-              listenable: Listenable.merge([store, storeMasjid]),
-              builder: (context, _) => ChipStatusDari(
-                status: _shellMasjid
-                    ? storeMasjid.statusKoneksi
-                    : store.statusKoneksi,
-              ),
-            ),
+            child: ChipStatusDari(status: store.statusKoneksi),
           ),
         ],
       ),
-      body: IndexedStack(index: tabAman, children: halaman),
+      body: Column(
+        children: [
+          _StripKoneksi(
+            nama: store.displayAktif?.nama ?? '',
+            keterangan:
+                'Wi-Fi · ${store.displayAktif?.ip ?? ''}:$kNekiosPort',
+            onPutus: () => widget.sesi.putuskan(),
+          ),
+          Expanded(child: IndexedStack(index: tabAman, children: halaman)),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: tabAman,
         onDestinationSelected: (index) => setState(() => _tab = index),
-        destinations: tujuan,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.monitor_outlined),
+            selectedIcon: Icon(Icons.monitor),
+            label: 'Beranda',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.campaign_outlined),
+            selectedIcon: Icon(Icons.campaign),
+            label: 'Mading',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.schedule_outlined),
+            selectedIcon: Icon(Icons.schedule),
+            label: 'Simulasi',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.image_outlined),
+            selectedIcon: Icon(Icons.image),
+            label: 'Logo',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'Jadwal',
+          ),
+        ],
       ),
     );
   }
+}
 
-  List<Widget> _halamanSekolah() => [
-    LayarKoneksi(store: store, storeMasjid: storeMasjid, tautan: widget.tautan),
-    LayarBeranda(store: store),
-    LayarMading(store: store),
-    LayarSimulasi(store: store),
-    LayarLogo(store: store),
-    LayarJadwal(store: store),
-  ];
+/// Shell MASJID: Beranda; Konten/Pengaturan/Tes masih placeholder
+/// tahap A2 (Rute A).
+class _ShellMasjid extends StatefulWidget {
+  const _ShellMasjid({required this.store, required this.sesi});
 
-  List<Widget> _halamanMasjid() => [
-    LayarKoneksi(store: store, storeMasjid: storeMasjid, tautan: widget.tautan),
-    LayarBerandaMasjid(store: storeMasjid),
-    const LayarTahapBerikut(
-      judul: 'Konten masjid — tahap berikutnya',
-      keterangan:
-          'Editor teks berjalan, banner, kas, gambar khusus, gambar '
-          'latar, dan logo untuk TV masjid dibangun pada tahap Rute A '
-          'berikutnya. Tahap ini: koneksi + Beranda + aksi cepat.',
-    ),
-    const LayarTahapBerikut(
-      judul: 'Pengaturan masjid — tahap berikutnya',
-      keterangan:
-          'Editor konfigurasi masjid (nama, koordinat, durasi iqamah, '
-          'petugas Jumat, dan lainnya) dibangun pada tahap Rute A '
-          'berikutnya.',
-    ),
-    const LayarTahapBerikut(
-      judul: 'Tes masjid — tahap berikutnya',
-      keterangan:
-          'Uji fase & simulasi jadwal shalat untuk TV masjid dibangun '
-          'pada tahap Rute A berikutnya.',
-    ),
-  ];
+  final MasjidStore store;
+  final SesiRemote sesi;
 
-  static const _tujuanSekolah = [
-    NavigationDestination(
-      icon: Icon(Icons.wifi_outlined),
-      selectedIcon: Icon(Icons.wifi),
-      label: 'Koneksi',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.monitor_outlined),
-      selectedIcon: Icon(Icons.monitor),
-      label: 'Beranda',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.campaign_outlined),
-      selectedIcon: Icon(Icons.campaign),
-      label: 'Mading',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.schedule_outlined),
-      selectedIcon: Icon(Icons.schedule),
-      label: 'Simulasi',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.image_outlined),
-      selectedIcon: Icon(Icons.image),
-      label: 'Logo',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.calendar_month_outlined),
-      selectedIcon: Icon(Icons.calendar_month),
-      label: 'Jadwal',
-    ),
-  ];
+  @override
+  State<_ShellMasjid> createState() => _ShellMasjidState();
+}
 
-  static const _tujuanMasjid = [
-    NavigationDestination(
-      icon: Icon(Icons.wifi_outlined),
-      selectedIcon: Icon(Icons.wifi),
-      label: 'Koneksi',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.monitor_outlined),
-      selectedIcon: Icon(Icons.monitor),
-      label: 'Beranda',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.article_outlined),
-      selectedIcon: Icon(Icons.article),
-      label: 'Konten',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings),
-      label: 'Pengaturan',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.science_outlined),
-      selectedIcon: Icon(Icons.science),
-      label: 'Tes',
-    ),
-  ];
+class _ShellMasjidState extends State<_ShellMasjid> {
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final halaman = [
+      LayarBerandaMasjid(store: store),
+      const LayarTahapBerikut(
+        judul: 'Konten masjid — tahap berikutnya',
+        keterangan:
+            'Editor teks berjalan, banner, kas, gambar khusus, gambar '
+            'latar, dan logo untuk TV masjid dibangun pada tahap Rute A '
+            'berikutnya. Tahap ini: koneksi + Beranda + aksi cepat.',
+      ),
+      const LayarTahapBerikut(
+        judul: 'Pengaturan masjid — tahap berikutnya',
+        keterangan:
+            'Editor konfigurasi masjid (nama, koordinat, durasi iqamah, '
+            'petugas Jumat, dan lainnya) dibangun pada tahap Rute A '
+            'berikutnya.',
+      ),
+      const LayarTahapBerikut(
+        judul: 'Tes masjid — tahap berikutnya',
+        keterangan:
+            'Uji fase & simulasi jadwal shalat untuk TV masjid dibangun '
+            'pada tahap Rute A berikutnya.',
+      ),
+    ];
+    final tabAman = _tab >= halaman.length ? 0 : _tab;
+    final aktif = store.displayAktif;
+    final keterangan = switch (aktif?.transport) {
+      JalurMasjid.bluetooth =>
+        'Bluetooth · ${aktif?.namaBluetooth ?? ''} ${aktif?.alamatBluetooth ?? ''}',
+      _ => 'Wi-Fi · ${aktif?.ip ?? ''}:$kPortWsMasjid',
+    };
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Nekios Remote'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: ChipStatusDari(status: store.statusKoneksi),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          _StripKoneksi(
+            nama: aktif?.nama ?? '',
+            keterangan: keterangan,
+            onPutus: () => widget.sesi.putuskan(),
+          ),
+          Expanded(child: IndexedStack(index: tabAman, children: halaman)),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: tabAman,
+        onDestinationSelected: (index) => setState(() => _tab = index),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.monitor_outlined),
+            selectedIcon: Icon(Icons.monitor),
+            label: 'Beranda',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.article_outlined),
+            selectedIcon: Icon(Icons.article),
+            label: 'Konten',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Pengaturan',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.science_outlined),
+            selectedIcon: Icon(Icons.science),
+            label: 'Tes',
+          ),
+        ],
+      ),
+    );
+  }
 }
