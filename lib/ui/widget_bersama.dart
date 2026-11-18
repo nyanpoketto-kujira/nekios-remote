@@ -38,8 +38,8 @@ class ChipStatusDari extends StatelessWidget {
   }
 }
 
-/// Isi tab yang belum dibangun pada tahap berjalan (Rute A tahap A1:
-/// editor Konten/Pengaturan/Tes masjid menyusul tahap berikutnya).
+/// Isi tab yang belum dibangun pada tahap berjalan (Rute A:
+/// editor Konten/Pengaturan masjid menyusul tahap A2 berikutnya).
 class LayarTahapBerikut extends StatelessWidget {
   const LayarTahapBerikut({
     super.key,

@@ -213,4 +213,41 @@ void main() {
 
     await bersihkan(tester);
   });
+
+  testWidgets('shell masjid: tab Tes membuka layar Tes sungguhan (A2a)', (
+    tester,
+  ) async {
+    await siapkan(tester);
+    await tester.pumpWidget(
+      NekiosRemoteApp(
+        store: store,
+        storeMasjid: storeMasjid,
+        sesi: sesi,
+        tautan: tautan,
+      ),
+    );
+    await tester.pump();
+
+    const display = DisplayTersimpan(
+      nama: 'TV Masjid Wi-Fi',
+      ip: '192.168.1.30',
+      tipe: TipeDisplay.masjid,
+    );
+    await storeMasjid.sambungkan(display);
+    transportMasjid.terima(paketFixture('paket_snapshot_masjid.json'));
+    transportMasjid.terima(paketFixture('paket_state_update_masjid.json'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.text('Tes'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Menu Tes — Simulasi Waktu Shalat'), findsOneWidget);
+    expect(find.text('Paksa Fase — Hari Biasa'), findsOneWidget);
+    expect(find.text('Paksa Fase — Hari Jumat'), findsOneWidget);
+    expect(find.text('Tes masjid — tahap berikutnya'), findsNothing);
+
+    await bersihkan(tester);
+  });
 }

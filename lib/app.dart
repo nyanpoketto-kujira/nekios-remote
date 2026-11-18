@@ -15,6 +15,7 @@ import 'ui/layar_jadwal.dart';
 import 'ui/layar_logo.dart';
 import 'ui/layar_mading.dart';
 import 'ui/layar_simulasi.dart';
+import 'ui/layar_tes_masjid.dart';
 import 'ui/widget_bersama.dart';
 
 /// Akar aplikasi nekios-remote. Tema terang & gelap mengikuti sistem,
@@ -214,8 +215,8 @@ class _ShellSekolahState extends State<_ShellSekolah> {
   }
 }
 
-/// Shell MASJID: Beranda; Konten/Pengaturan/Tes masih placeholder
-/// tahap A2 (Rute A).
+/// Shell MASJID: Beranda + Tes (A2a) berfungsi; Konten/Pengaturan
+/// masih placeholder tahap A2 berikutnya (Rute A).
 class _ShellMasjid extends StatefulWidget {
   const _ShellMasjid({required this.store, required this.sesi});
 
@@ -248,12 +249,7 @@ class _ShellMasjidState extends State<_ShellMasjid> {
             'petugas Jumat, dan lainnya) dibangun pada tahap Rute A '
             'berikutnya.',
       ),
-      const LayarTahapBerikut(
-        judul: 'Tes masjid — tahap berikutnya',
-        keterangan:
-            'Uji fase & simulasi jadwal shalat untuk TV masjid dibangun '
-            'pada tahap Rute A berikutnya.',
-      ),
+      LayarTesMasjid(store: store),
     ];
     final tabAman = _tab >= halaman.length ? 0 : _tab;
     final aktif = store.displayAktif;
