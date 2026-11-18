@@ -1,17 +1,82 @@
-# nekios_remote
+# Nekios Remote
 
-A new Flutter project.
+Remote HP untuk display **nekios-school** — bagian dari ekosistem
+**Nekios**. Dari ponsel, guru/panitia pameran mengendalikan TV yang
+menayangkan jadwal pelajaran: mengganti teks mading, menyimulasikan
+jam (termasuk tombol sakti *lompat ke bel berikutnya*), memasang
+logo, dan mengganti jadwal — semuanya lewat WebSocket di jaringan
+lokal yang sama.
 
-## Getting Started
+- **Application ID:** `id.nekios.remote`
+- **Protokol:** Nekios v1 (paket
+  [`nekios_core`](https://github.com/nyanpoketto-kujira/nekios-core),
+  spesifikasi di `docs/PROTOCOL.md` repo tersebut)
+- **Port display:** 8920 (tetap), alamat IP dimasukkan manual dan
+  IP terakhir tersimpan otomatis.
 
-This project is a starting point for a Flutter application.
+## Cara pakai singkat
 
-A few resources to get you started if this is your first Flutter project:
+1. Pastikan HP dan TV berada di **Wi-Fi yang sama**, dan aplikasi
+   nekios-school sedang berjalan di TV.
+2. Tab **Koneksi**: masukkan alamat IP TV (atau ketuk display
+   tersimpan) → **Sambungkan**.
+3. Tab **Beranda** mencerminkan keadaan TV secara langsung.
+4. Kendalikan dari tab **Mading**, **Simulasi**, **Logo**, dan
+   **Jadwal**.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Setiap perintah menunggu balasan display: `ack` berarti berhasil
+(dan snapshot terbaru menyusul), `error` berarti ditolak — pesannya
+ditampilkan apa adanya dari display.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Enam fitur (R2a)
+
+| Tab | Isi |
+| --- | --- |
+| Koneksi | Daftar display tersimpan (nama + IP), sambung cepat dengan auto-save IP terakhir, status koneksi |
+| Beranda | Cermin `state.snapshot`: status, jam efektif berjalan, hitung mundur bel, badge SIMULASI, mading aktif, ringkasan jadwal, status logo |
+| Mading | Editor teks mading; kirim & kosongkan ke sambutan bawaan |
+| Simulasi | Lompat ke bel berikutnya, lompat ke jam tertentu, kembali ke jam nyata |
+| Logo | Pilih gambar, perkecil maks 512px, kirim/hapus logo TV |
+| Jadwal | Pilih berkas JSON, validasi §7 di sisi remote, ringkasan, kirim `schedule.replace` |
+
+Editor jadwal *visual* (master data guru/mapel + plotting di HP)
+adalah fase **R2b**; tab Jadwal saat ini mengirim berkas JSON yang
+dibuat di luar aplikasi.
+
+## Arsitektur
+
+Berlapis sederhana, meniru pola nekios-school:
+
+```
+lib/
+  tema.dart            — Material You, seed 0xFF006A60 (sama dengan
+                         masjid-you & nekios-school), terang+gelap
+                         mengikuti sistem
+  model/               — DisplayTersimpan, SnapshotDisplay (parser
+                         toleran atas payload snapshot R1)
+  domain/              — fungsi murni: validasi_jadwal (§7 atas JSON
+                         mentah), perintah (pembangun paket, logika
+                         lompat bel)
+  layanan/             — KlienRemote (pembungkus NekiosKlien),
+                         PenyimpananDisplay (shared_preferences),
+                         olah logo (package:image)
+  state/               — RemoteStore (ChangeNotifier): koneksi,
+                         snapshot, pola tunggu ack/error + timeout
+  ui/                  — enam layar + widget bersama
+```
+
+Keputusan arsitektur dicatat di [docs/DECISIONS.md](docs/DECISIONS.md).
+
+## Pengembangan
+
+```bash
+flutter pub get     # nekios_core diambil dari git (repo publik)
+flutter analyze     # harus nol isu
+flutter test        # 45 test: validator, perintah, snapshot,
+                    # penyimpanan, logo, store, widget
+```
+
+CI (GitHub Actions, `.github/workflows/build.yml`) menjalankan
+analyze + test di setiap push/PR, dan membangun APK x86_64 debug
+untuk emulator pada PR / dispatch manual — pola yang sama dengan
+nekios-school.
