@@ -96,12 +96,29 @@ class MasjidStore extends ChangeNotifier {
     unawaited(mintaSnapshot());
   }
 
+  /// Selesaikan penunggu snapshot perdana (dipakai putuskan &
+  /// tangani-kesalahan): tanpa ini, `mintaSnapshot` menggantung
+  /// sampai timeout-nya dan timer timeout-nya bocor melewati
+  /// pemutusan (di test: "Timer is still pending" saat teardown).
+  void _selesaikanPenungguSnapshot() {
+    if (_penungguSnapshot != null && !_penungguSnapshot!.isCompleted) {
+      _penungguSnapshot!.complete();
+    }
+    _penungguSnapshot = null;
+  }
+
   /// Putuskan sambungan dan bersihkan cermin state.
   Future<void> putuskan({bool senyap = false}) async {
     _selesaikanPenunggu(const HasilPerintah.gagal('Koneksi terputus.'));
-    await _langgananPaket?.cancel();
+    _selesaikanPenungguSnapshot();
+    // Cancel langganan TIDAK di-await: future cancel langganan
+    // broadcast bisa tidak pernah selesai di zona fake-async
+    // (deadlock yang membekukan widget test koneksi/beranda masjid)
+    // dan teardown stream memang tidak perlu menahan pemutusan.
+    // Pola sama seperti RemoteStore.dispose.
+    unawaited(_langgananPaket?.cancel() ?? Future<void>.value());
     _langgananPaket = null;
-    await _langgananKesalahan?.cancel();
+    unawaited(_langgananKesalahan?.cancel() ?? Future<void>.value());
     _langgananKesalahan = null;
     await _transport?.putus();
     _transport = null;
@@ -117,6 +134,7 @@ class MasjidStore extends ChangeNotifier {
     statusKoneksi = StatusKoneksi.terputus;
     pesanKoneksi = pesan;
     _selesaikanPenunggu(HasilPerintah.gagal(pesan));
+    _selesaikanPenungguSnapshot();
     snapshot = null;
     statusTv = null;
     waktuStatus = null;
@@ -184,7 +202,12 @@ class MasjidStore extends ChangeNotifier {
     );
     try {
       await penunggu.future.timeout(batasBukti);
-      return const HasilPerintah.berhasil();
+      // Penunggu juga diselesaikan oleh putuskan()/kesalahan —
+      // dalam kasus itu koneksi sudah putus, jadi laporkan gagal,
+      // bukan berhasil.
+      return terhubung
+          ? const HasilPerintah.berhasil()
+          : const HasilPerintah.gagal('Koneksi terputus.');
     } on TimeoutException {
       return const HasilPerintah.gagal(
         'TV tidak mengirim snapshot. Periksa koneksi lalu coba lagi.',
