@@ -236,18 +236,18 @@ class _ShellMasjidState extends State<_ShellMasjid> {
     final halaman = [
       LayarBerandaMasjid(store: store),
       const LayarTahapBerikut(
-        judul: 'Konten masjid — tahap berikutnya',
+        judul: 'Konten masjid',
         keterangan:
-            'Editor teks berjalan, banner, kas, gambar khusus, gambar '
-            'latar, dan logo untuk TV masjid dibangun pada tahap Rute A '
-            'berikutnya. Tahap ini: koneksi + Beranda + aksi cepat.',
+            'Fitur untuk mengatur teks berjalan, banner, kas, gambar '
+            'khusus, gambar latar, dan logo TV dari aplikasi ini '
+            'sedang disiapkan.',
       ),
       const LayarTahapBerikut(
-        judul: 'Pengaturan masjid — tahap berikutnya',
+        judul: 'Pengaturan masjid',
         keterangan:
-            'Editor konfigurasi masjid (nama, koordinat, durasi iqamah, '
-            'petugas Jumat, dan lainnya) dibangun pada tahap Rute A '
-            'berikutnya.',
+            'Fitur untuk mengatur nama masjid, jadwal shalat, durasi '
+            'iqamah, petugas Jumat, dan lainnya dari aplikasi ini '
+            'sedang disiapkan.',
       ),
       LayarTesMasjid(store: store),
     ];
