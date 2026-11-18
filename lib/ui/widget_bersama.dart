@@ -11,9 +11,21 @@ class ChipStatusKoneksi extends StatelessWidget {
   final RemoteStore store;
 
   @override
+  Widget build(BuildContext context) =>
+      ChipStatusDari(status: store.statusKoneksi);
+}
+
+/// Chip status dari nilai [StatusKoneksi] mentah — dipakai untuk
+/// store mana pun (sekolah / masjid).
+class ChipStatusDari extends StatelessWidget {
+  const ChipStatusDari({super.key, required this.status});
+
+  final StatusKoneksi status;
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final (warna, teks) = switch (store.statusKoneksi) {
+    final (warna, teks) = switch (status) {
       StatusKoneksi.terhubung => (scheme.primary, 'Terhubung'),
       StatusKoneksi.menyambung => (scheme.tertiary, 'Menyambung…'),
       StatusKoneksi.terputus => (scheme.error, 'Terputus'),
@@ -22,6 +34,53 @@ class ChipStatusKoneksi extends StatelessWidget {
       avatar: Icon(Icons.circle, size: 10, color: warna),
       label: Text(teks),
       visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+/// Isi tab yang belum dibangun pada tahap berjalan (Rute A tahap A1:
+/// editor Konten/Pengaturan/Tes masjid menyusul tahap berikutnya).
+class LayarTahapBerikut extends StatelessWidget {
+  const LayarTahapBerikut({
+    super.key,
+    required this.judul,
+    required this.keterangan,
+  });
+
+  final String judul;
+  final String keterangan;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.construction_outlined,
+              size: 56,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              judul,
+              style: theme.textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              keterangan,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

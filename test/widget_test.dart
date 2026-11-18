@@ -4,18 +4,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nekios_remote/layanan/penyimpanan.dart';
 import 'package:nekios_remote/state/remote_store.dart';
+import 'package:nekios_remote/state/store_masjid.dart';
 import 'package:nekios_remote/tema.dart';
 import 'package:nekios_remote/ui/layar_beranda.dart';
 import 'package:nekios_remote/ui/layar_koneksi.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'klien_palsu.dart';
+import 'masjid_palsu.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late KlienPalsu klien;
   late RemoteStore store;
+  late MasjidStore storeMasjid;
+  late TautanBluetoothPalsu tautan;
 
   Future<void> siapkan(WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({
@@ -30,11 +34,15 @@ void main() {
       penyimpanan: PenyimpananDisplay(await SharedPreferences.getInstance()),
       jedaPing: const Duration(minutes: 5),
     );
+    tautan = TautanBluetoothPalsu();
+    storeMasjid = MasjidStore(buatTransport: (_) => TransportMasjidPalsu());
   }
 
   Future<void> bersihkan(WidgetTester tester) async {
     await store.putuskan();
     store.dispose();
+    await storeMasjid.putuskan();
+    storeMasjid.dispose();
     await tester.pumpWidget(const SizedBox());
   }
 
@@ -45,13 +53,19 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: temaNekios(Brightness.light),
-        home: Scaffold(body: LayarKoneksi(store: store)),
+        home: Scaffold(
+          body: LayarKoneksi(
+            store: store,
+            storeMasjid: storeMasjid,
+            tautan: tautan,
+          ),
+        ),
       ),
     );
     await tester.pump();
 
     expect(find.text('TV Pameran'), findsOneWidget);
-    expect(find.text('192.168.1.20:8920'), findsOneWidget);
+    expect(find.text('Sekolah · 192.168.1.20:8920'), findsOneWidget);
     expect(find.text('Terputus'), findsWidgets);
 
     await tester.tap(find.text('TV Pameran'));

@@ -129,3 +129,95 @@ tempat operasi edit; UI Tahap 1/Tahap 2 hanya memanggilnya dan
 menyimpan draf lewat callback perubahan. Alur kirim R2a dipakai
 ulang apa adanya dari layar Tinjau (rakit → validasi §7 →
 ringkasan per hari → konfirmasi → `schedule.replace`).
+
+## ADR-003: Rute A — dialek masjid-you di remote pusat (tahap A1, 2026-11-18)
+
+**Konteks.** nekios-remote menjadi SATU remote pusat untuk dua
+display: nekios-school (protokol nekios-core, WebSocket 8920) dan
+tv_display masjid-you. Nyanpo mengunci **Rute A**: TV masjid TIDAK
+diubah sama sekali (zero touch, anti-regresi untuk DKM) — remote
+yang belajar protokol masjid yang sudah ada. Audit M0
+(`audit-masjid-you-sync.md`) memetakan protokol itu: envelope
+`SyncPacket {action, payload}` tanpa versi/ack, WebSocket shelf
+port 8080 tanpa autentikasi, dan Bluetooth Classic RFCOMM
+(plugin kustom `bluetooth_sync`, UUID tetap, framing 4-byte
+big-endian + JSON, handshake PIN 4 digit + nonce, chunking 32 KB
+untuk payload ≥ 64 KB).
+
+**Keputusan.**
+
+1. **Dialek terpisah di `lib/masjid/`.** Model wire masjid
+   (MosqueConfig, RunningTextMessage, MediaBanner, KasTransaction,
+   SpecialImage, BackgroundImage, StateSnapshot, PrayerType/Phase)
+   dan codec SyncPacket diport PERSIS dari `shared_models`
+   masjid-you — paritas `toMap`/`fromMap` adalah kontrak, dibuktikan
+   fixture yang dibangun dari serialisasi shared_models asli
+   (round-trip identik JSON). Dialek tidak bercampur dengan model
+   nekios-core; `MasjidStore` terpisah dari `RemoteStore`. Payload
+   `stateUpdate` yang di sumber tidak berkelas dimodelkan sebagai
+   `StatusTvMasjid` di sisi dialek.
+2. **Kontrak fire-and-forget diakui, bukan dilawan.** Protokol
+   masjid tidak punya ack/request-id. Perintah di `MasjidStore`
+   menyelesaikan `HasilPerintah` dari BUKTI SUSULAN yang disiarkan
+   TV: perintah data menunggu `stateSnapshot` berikutnya, perintah
+   kontrol menunggu `stateUpdate`/`stateSnapshot` berikutnya;
+   timeout (bawaan 6 detik) = gagal lokal dengan pesan jujur.
+   Satu perintah menunggu bukti pada satu waktu (v1, sama seperti
+   store sekolah). `triggerBeep` yang mati di sumber TIDAK dikirim
+   remote (keputusan hidupkan/hapus menunggu nyanpo).
+3. **Bluetooth: plugin lokal, framing di Dart.** masjid-you
+   memakai plugin kustom (bukan flutter_bluetooth_serial), jadi
+   dibuat plugin lokal `packages/bluetooth_rfcomm`: port separuh
+   KLIEN `bluetooth_sync` (kontrak channel, socket bonded →
+   fallback insecure refleksi, watchdog 15 detik, alur izin sama),
+   TANPA sisi host dan TANPA framing native — plugin hanya pipa
+   byte mentah. Framing 4-byte, handshake auth
+   (`authChallenge{nonce}` → `authResponse{pin, nonce}`; paket data
+   sebelum `authSuccess` dibuang), dan chunking
+   (`chunkedData`, ambang 64 KB, potongan 32 KB, satu transfer
+   aktif) hidup di Dart murni agar teruji unit; byte di kabel
+   identik dengan implementasi masjid-you. Kompresi gambar jalur
+   BT diport dari mobile_remote (latar maks 1920px JPEG q80 —
+   menghormati opsi tanpa-kompresi; logo maks 512px, alpha→PNG).
+   Jalur WebSocket selalu mengirim gambar asli tanpa chunking.
+4. **Bluetooth Android saja.** Plugin hanya terdaftar di Android;
+   di platform lain transport gagal dengan pesan manusiawi.
+   Desktop (Windows/Linux) memang boleh terbatas — keputusan
+   transport nyanpo: BT wajib untuk kedua display, target utama
+   Android.
+5. **Display bertipe.** `DisplayTersimpan` kini membawa
+   `tipe` (sekolah|masjid), `transport` (wifi|bluetooth), alamat &
+   nama Bluetooth, dan PIN BT (disimpan lokal via pola
+   shared_preferences yang ada; TIDAK pernah masuk log). Entri
+   lama tanpa field tipe dibaca sebagai sekolah — daftar lama
+   pengguna tidak berubah perilaku. PIN berganti tiap TV menyala
+   ulang (perilaku sumber); pesan gagal auth mengarahkan pengguna
+   memperbaruinya lewat dialog Ubah.
+6. **Shell mengikuti tipe display aktif.** Tab Koneksi dipakai
+   bersama (daftar satu, ketuk menyambung menurut tipe); shell
+   Beranda dkk. mengikuti sambungan yang paling baru mulai
+   menyambung. Tahap A1: Beranda masjid (cermin fase + hitung
+   mundur lokal, kas, status hasData) + aksi cepat fase
+   (skipAdhan/startIqomah/startShalat/finishShalat — wajib dialog
+   konfirmasi) dan mode (setMuted/setStandby). Tab Konten/
+   Pengaturan/Tes masjid adalah placeholder berlabel tahap
+   berikutnya — editor TIDAK dibangun tahap ini.
+7. **Bootstrap hasData=false disiapkan, belum diaktifkan.**
+   Mekanisme mobile_remote (TV kosong menerima satu dorongan
+   `updateConfig` — payload = map config itu sendiri —,
+   `updateRunningText`, `updateBanners`, `updateKas`,
+   `updateSideImages`, `updateBackgroundImages` per koneksi)
+   diimplementasikan di `MasjidStore` lewat penyedia data
+   terinjeksi dan diuji dengan penyedia palsu. Bawaan tahap A1:
+   tanpa penyedia (remote belum punya dataset lokal masjid),
+   Beranda hanya memperingatkan status TV kosong.
+
+**Konsekuensi.** Paritas dialek bergantung pada masjid-you tidak
+berubah (repo itu beku menunggu rebrand nekios-mosque); bila
+shared_models berubah, fixture + test round-trip di
+`test/masjid_model_test.dart` adalah alarm pertamanya. Bagian BT
+yang belum bisa dibuktikan tanpa perangkat sungguhan: koneksi
+RFCOMM fisik, alur izin Android 12+, dan discovery — logika
+protokolnya (framing/auth/chunk/store) teruji unit penuh, dan
+transport diuji melawan tautan palsu + server WebSocket lokal.
+Verifikasi rig (emulator) adalah tahap M3.
