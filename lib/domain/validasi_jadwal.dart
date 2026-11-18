@@ -132,7 +132,9 @@ HasilValidasiJadwal validasiJadwalJson(Object? json) {
     errors.add('Bagian "guru" hilang atau bukan daftar.');
   } else {
     for (final g in guruJson) {
-      if (g is! Map<String, dynamic> || g['kg'] is! int || g['nama'] is! String) {
+      if (g is! Map<String, dynamic> ||
+          g['kg'] is! int ||
+          g['nama'] is! String) {
         errors.add('Entri guru tidak lengkap (wajib kg angka dan nama).');
         continue;
       }
@@ -274,7 +276,8 @@ HasilValidasiJadwal validasiJadwalJson(Object? json) {
     }
   }
 
-  final strukturTerbaca = meta is Map<String, dynamic> &&
+  final strukturTerbaca =
+      meta is Map<String, dynamic> &&
       kelasJson is List &&
       guruJson is List &&
       mapelJson is List &&

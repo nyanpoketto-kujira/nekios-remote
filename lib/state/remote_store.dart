@@ -14,9 +14,7 @@ enum StatusKoneksi { terputus, menyambung, terhubung }
 
 /// Hasil satu perintah yang dikirim ke display.
 class HasilPerintah {
-  const HasilPerintah.berhasil()
-      : sukses = true,
-        pesan = null;
+  const HasilPerintah.berhasil() : sukses = true, pesan = null;
   const HasilPerintah.gagal(this.pesan) : sukses = false;
 
   final bool sukses;
@@ -37,12 +35,11 @@ class HasilPerintah {
 /// yang jujur, bukan sekadar "terkirim".
 class RemoteStore extends ChangeNotifier {
   RemoteStore({
-    required KlienRemote klien,
-    required PenyimpananDisplay penyimpanan,
+    required this._klien,
+    required this._penyimpanan,
     this.jedaPing = const Duration(seconds: 15),
     this.batasBalasan = const Duration(seconds: 6),
-  })  : _klien = klien,
-        _penyimpanan = penyimpanan {
+  }) {
     daftarDisplay = _penyimpanan.daftar();
     ipTerakhir = _penyimpanan.ipTerakhir;
     _langganan = _klien.paketMasuk.listen(_tanganiPaket);
@@ -214,8 +211,7 @@ class RemoteStore extends ChangeNotifier {
         }
       case TipePaket.ack:
         final ofType = paket.payload?['ofType'] as String?;
-        final penunggu =
-            ofType != null ? _penunggu.remove(ofType) : null;
+        final penunggu = ofType != null ? _penunggu.remove(ofType) : null;
         if (penunggu != null && !penunggu.isCompleted) {
           penunggu.complete(const HasilPerintah.berhasil());
         } else if (ofType == null) {
@@ -228,12 +224,14 @@ class RemoteStore extends ChangeNotifier {
           }
         }
       case TipePaket.error:
-        final pesan = paket.payload?['message'] as String? ??
-            'Display menolak perintah.';
+        final pesan =
+            paket.payload?['message'] as String? ?? 'Display menolak perintah.';
         // Paket error tidak membawa ofType; selesaikan semua penunggu
         // dengan kegagalan ini (v1: satu perintah dalam satu waktu).
         for (final penunggu in _penunggu.values) {
-          if (!penunggu.isCompleted) penunggu.complete(HasilPerintah.gagal(pesan));
+          if (!penunggu.isCompleted) {
+            penunggu.complete(HasilPerintah.gagal(pesan));
+          }
         }
         _penunggu.clear();
     }

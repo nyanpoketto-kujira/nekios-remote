@@ -15,10 +15,8 @@ class DisplayTersimpan {
 
   Map<String, dynamic> toJson() => {'nama': nama, 'ip': ip};
 
-  DisplayTersimpan copyWith({String? nama, String? ip}) => DisplayTersimpan(
-        nama: nama ?? this.nama,
-        ip: ip ?? this.ip,
-      );
+  DisplayTersimpan copyWith({String? nama, String? ip}) =>
+      DisplayTersimpan(nama: nama ?? this.nama, ip: ip ?? this.ip);
 
   @override
   bool operator ==(Object other) =>

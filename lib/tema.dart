@@ -14,8 +14,5 @@ ThemeData temaNekios(Brightness brightness) {
     seedColor: kSeedNekios,
     brightness: brightness,
   );
-  return ThemeData(
-    colorScheme: scheme,
-    useMaterial3: true,
-  );
+  return ThemeData(colorScheme: scheme, useMaterial3: true);
 }

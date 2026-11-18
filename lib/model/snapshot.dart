@@ -21,16 +21,16 @@ enum StatusDisplay {
   tidakDikenal;
 
   static StatusDisplay dariString(String? nilai) => switch (nilai) {
-        'pelajaran' => StatusDisplay.pelajaran,
-        'istirahat' => StatusDisplay.istirahat,
-        'isoma' => StatusDisplay.isoma,
-        'khusus' => StatusDisplay.khusus,
-        'sebelumMasuk' => StatusDisplay.sebelumMasuk,
-        'pulang' => StatusDisplay.pulang,
-        'tidakAdaJadwal' => StatusDisplay.tidakAdaJadwal,
-        'belumSiap' => StatusDisplay.belumSiap,
-        _ => StatusDisplay.tidakDikenal,
-      };
+    'pelajaran' => StatusDisplay.pelajaran,
+    'istirahat' => StatusDisplay.istirahat,
+    'isoma' => StatusDisplay.isoma,
+    'khusus' => StatusDisplay.khusus,
+    'sebelumMasuk' => StatusDisplay.sebelumMasuk,
+    'pulang' => StatusDisplay.pulang,
+    'tidakAdaJadwal' => StatusDisplay.tidakAdaJadwal,
+    'belumSiap' => StatusDisplay.belumSiap,
+    _ => StatusDisplay.tidakDikenal,
+  };
 }
 
 /// Slot yang sedang aktif di display (bentuk mentah dari snapshot).
@@ -48,11 +48,11 @@ class SlotAktif {
   final String? label;
 
   factory SlotAktif.fromJson(Map<String, dynamic> json) => SlotAktif(
-        mulai: json['mulai'] as String? ?? '',
-        selesai: json['selesai'] as String? ?? '',
-        tipe: json['tipe'] as String? ?? '',
-        label: json['label'] as String?,
-      );
+    mulai: json['mulai'] as String? ?? '',
+    selesai: json['selesai'] as String? ?? '',
+    tipe: json['tipe'] as String? ?? '',
+    label: json['label'] as String?,
+  );
 }
 
 /// Ringkasan jadwal yang sedang dimuat display (dari snapshot).
@@ -141,17 +141,19 @@ class SnapshotDisplay {
 
   /// Label status yang manusiawi untuk pengguna (Bahasa Indonesia).
   String get labelStatus => switch (status) {
-        StatusDisplay.pelajaran =>
-          jamKeAktif == null ? 'Pelajaran berlangsung' : 'Pelajaran — Jam ke-$jamKeAktif',
-        StatusDisplay.istirahat => 'Istirahat',
-        StatusDisplay.isoma => 'ISOMA — Istirahat, Sholat, Makan',
-        StatusDisplay.khusus => slotAktif?.label ?? 'Kegiatan khusus',
-        StatusDisplay.sebelumMasuk => 'Sebelum masuk',
-        StatusDisplay.pulang => 'Sudah pulang',
-        StatusDisplay.tidakAdaJadwal => 'Tidak ada jadwal hari ini',
-        StatusDisplay.belumSiap => 'Display belum siap',
-        StatusDisplay.tidakDikenal => 'Status tidak dikenal ($statusMentah)',
-      };
+    StatusDisplay.pelajaran =>
+      jamKeAktif == null
+          ? 'Pelajaran berlangsung'
+          : 'Pelajaran — Jam ke-$jamKeAktif',
+    StatusDisplay.istirahat => 'Istirahat',
+    StatusDisplay.isoma => 'ISOMA — Istirahat, Sholat, Makan',
+    StatusDisplay.khusus => slotAktif?.label ?? 'Kegiatan khusus',
+    StatusDisplay.sebelumMasuk => 'Sebelum masuk',
+    StatusDisplay.pulang => 'Sudah pulang',
+    StatusDisplay.tidakAdaJadwal => 'Tidak ada jadwal hari ini',
+    StatusDisplay.belumSiap => 'Display belum siap',
+    StatusDisplay.tidakDikenal => 'Status tidak dikenal ($statusMentah)',
+  };
 
   /// Jam efektif pada waktu lokal [sekarang], bila snapshot ini
   /// diterima pada waktu lokal [diterimaPada]. Jam display berjalan
@@ -200,5 +202,7 @@ String formatSisaDetik(int detik) {
   final menit = (d % 3600) ~/ 60;
   final sisa = d % 60;
   String dua(int n) => n.toString().padLeft(2, '0');
-  return jam > 0 ? '$jam:${dua(menit)}:${dua(sisa)}' : '${dua(menit)}:${dua(sisa)}';
+  return jam > 0
+      ? '$jam:${dua(menit)}:${dua(sisa)}'
+      : '${dua(menit)}:${dua(sisa)}';
 }

@@ -35,9 +35,9 @@ class PenyimpananDisplay {
   }
 
   Future<void> simpanDaftar(List<DisplayTersimpan> daftar) => _prefs.setString(
-        kunciDaftar,
-        jsonEncode(daftar.map((d) => d.toJson()).toList()),
-      );
+    kunciDaftar,
+    jsonEncode(daftar.map((d) => d.toJson()).toList()),
+  );
 
   /// IP terakhir yang berhasil dipakai menyambung (auto-save).
   String? get ipTerakhir => _prefs.getString(kunciIpTerakhir);

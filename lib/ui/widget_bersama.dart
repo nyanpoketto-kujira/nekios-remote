@@ -1,0 +1,154 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../state/remote_store.dart';
+
+/// Chip ringkas keadaan koneksi (dipakai di AppBar & layar Koneksi).
+class ChipStatusKoneksi extends StatelessWidget {
+  const ChipStatusKoneksi({super.key, required this.store});
+
+  final RemoteStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final (warna, teks) = switch (store.statusKoneksi) {
+      StatusKoneksi.terhubung => (scheme.primary, 'Terhubung'),
+      StatusKoneksi.menyambung => (scheme.tertiary, 'Menyambung…'),
+      StatusKoneksi.terputus => (scheme.error, 'Terputus'),
+    };
+    return Chip(
+      avatar: Icon(Icons.circle, size: 10, color: warna),
+      label: Text(teks),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+/// Membangun ulang [builder] setiap detik — basis jam efektif &
+/// hitung mundur yang tetap berjalan di antara snapshot.
+class BerjalanTiapDetik extends StatefulWidget {
+  const BerjalanTiapDetik({super.key, required this.builder});
+
+  final WidgetBuilder builder;
+
+  @override
+  State<BerjalanTiapDetik> createState() => _BerjalanTiapDetikState();
+}
+
+class _BerjalanTiapDetikState extends State<BerjalanTiapDetik> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context);
+}
+
+/// Isi tab saat remote belum terhubung ke display mana pun.
+class BadanBelumTerhubung extends StatelessWidget {
+  const BadanBelumTerhubung({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.tv_off_outlined,
+              size: 56,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Belum terhubung ke display',
+              style: theme.textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sambungkan dulu ke TV dari tab Koneksi — pastikan HP dan '
+              'TV berada di Wi-Fi yang sama.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Dialog konfirmasi singkat; true bila pengguna menyetujui.
+Future<bool> mintaKonfirmasi(
+  BuildContext context, {
+  required String judul,
+  required String isi,
+  required String tombolSetuju,
+}) async {
+  final hasil = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(judul),
+      content: Text(isi),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(tombolSetuju),
+        ),
+      ],
+    ),
+  );
+  return hasil ?? false;
+}
+
+/// Umpan balik standar hasil perintah: SnackBar sukses/gagal.
+void tampilkanHasil(
+  BuildContext context,
+  HasilPerintah hasil,
+  String pesanSukses,
+) {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        hasil.sukses ? pesanSukses : (hasil.pesan ?? 'Perintah gagal.'),
+      ),
+    ),
+  );
+}
+
+/// Format jam `HH:MM:SS` dari DateTime.
+String formatJam(DateTime waktu) {
+  String dua(int n) => n.toString().padLeft(2, '0');
+  return '${dua(waktu.hour)}:${dua(waktu.minute)}:${dua(waktu.second)}';
+}
+
+/// Format jam `HH:MM` dari DateTime.
+String formatJamMenit(DateTime waktu) {
+  String dua(int n) => n.toString().padLeft(2, '0');
+  return '${dua(waktu.hour)}:${dua(waktu.minute)}';
+}

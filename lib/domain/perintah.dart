@@ -11,26 +11,24 @@ import '../model/snapshot.dart';
 NekiosPacket perintahPing() => NekiosPacket.ping();
 
 /// `mading.set` — [teks] kosong berarti kembali ke sambutan bawaan.
-NekiosPacket perintahAturMading(String teks) => NekiosPacket(
-      type: TipePaket.madingSet,
-      payload: {'text': teks},
-    );
+NekiosPacket perintahAturMading(String teks) =>
+    NekiosPacket(type: TipePaket.madingSet, payload: {'text': teks});
 
 /// `logo.set` — [imageBase64] adalah gambar ter-encode base64;
 /// string kosong menghapus logo di display.
 NekiosPacket perintahAturLogo(String imageBase64) => NekiosPacket(
-      type: TipePaket.logoSet,
-      payload: {'imageBase64': imageBase64},
-    );
+  type: TipePaket.logoSet,
+  payload: {'imageBase64': imageBase64},
+);
 
 /// `logo.set` dengan payload kosong — hapus logo di display.
 NekiosPacket perintahHapusLogo() => perintahAturLogo('');
 
 /// `clock.simulate` ke momen absolut [pada].
 NekiosPacket perintahSimulasiKe(DateTime pada) => NekiosPacket(
-      type: TipePaket.clockSimulate,
-      payload: {'at': pada.toIso8601String()},
-    );
+  type: TipePaket.clockSimulate,
+  payload: {'at': pada.toIso8601String()},
+);
 
 /// Tombol sakti: lompat ke bel berikutnya.
 ///
