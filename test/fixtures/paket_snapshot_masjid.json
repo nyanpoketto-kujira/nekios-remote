@@ -1,0 +1,109 @@
+{
+  "action": "stateSnapshot",
+  "payload": {
+    "config": {
+      "name": "Masjid Al-Hikmah",
+      "address": "Jl. Pemuda No. 45",
+      "latitude": -6.1754,
+      "longitude": 106.8272,
+      "utcOffsetHours": 7,
+      "iqamahDuration": {
+        "fajr": 12,
+        "dhuhr": 10,
+        "asr": 10,
+        "maghrib": 7,
+        "isha": 15
+      },
+      "prayerOffsets": {
+        "fajr": 2,
+        "sunrise": 0,
+        "dhuhr": 0,
+        "asr": 0,
+        "maghrib": 0,
+        "isha": -1
+      },
+      "preAdhanMinutes": 20,
+      "adhanMinutes": 3,
+      "preIqomahMinutes": 2,
+      "shalatMinutes": 12,
+      "khutbahMinutes": 25,
+      "fridayKhatib": "Ustadz Ahmad",
+      "fridayMuadzin": "Ustadz Bilal",
+      "showKas": true,
+      "hasFridayPrayer": true,
+      "backgroundSlideSeconds": 45
+    },
+    "runningTexts": [
+      {
+        "id": "rt1",
+        "content": "Kajian rutin Sabtu",
+        "isActive": true,
+        "category": "Kajian"
+      },
+      {
+        "id": "rt2",
+        "content": "Saldo kas pekan ini",
+        "isActive": false,
+        "category": "Kas"
+      }
+    ],
+    "banners": [
+      {
+        "id": "b1",
+        "header": "DONASI",
+        "title": "Infaq Pembangunan",
+        "content": "Salurkan untuk ruang belajar",
+        "footer": "Amal Jariyah",
+        "isActive": true,
+        "base64Image": "abc123"
+      },
+      {
+        "id": "b2",
+        "header": "INFO MASJID",
+        "title": "Jadwal Kajian",
+        "content": "Setiap Sabtu ba'da Subuh",
+        "footer": "",
+        "isActive": true,
+        "base64Image": null
+      }
+    ],
+    "kasTransactions": [
+      {
+        "id": "k1",
+        "type": "masuk",
+        "amount": 2500000,
+        "description": "Infaq Jumat",
+        "date": "2026-08-14T09:30:00.000"
+      },
+      {
+        "id": "k2",
+        "type": "keluar",
+        "amount": 750000,
+        "description": "Listrik masjid",
+        "date": "2026-08-15T10:00:00.000"
+      }
+    ],
+    "sideImages": [
+      {
+        "id": "s1",
+        "caption": "Renovasi tempat wudhu",
+        "base64Image": "c2lkZTE=",
+        "isActive": true
+      }
+    ],
+    "backgroundImages": [
+      {
+        "id": "bg1",
+        "base64Image": "Ymcx",
+        "isActive": true
+      },
+      {
+        "id": "bg2",
+        "base64Image": "Ymcy",
+        "isActive": false
+      }
+    ],
+    "mosqueLogo": "bG9nbw==",
+    "hasData": true
+  }
+}

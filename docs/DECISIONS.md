@@ -129,3 +129,195 @@ tempat operasi edit; UI Tahap 1/Tahap 2 hanya memanggilnya dan
 menyimpan draf lewat callback perubahan. Alur kirim R2a dipakai
 ulang apa adanya dari layar Tinjau (rakit → validasi §7 →
 ringkasan per hari → konfirmasi → `schedule.replace`).
+
+## ADR-003: Rute A — dialek masjid-you di remote pusat (tahap A1, 2026-11-18)
+
+**Konteks.** nekios-remote menjadi SATU remote pusat untuk dua
+display: nekios-school (protokol nekios-core, WebSocket 8920) dan
+tv_display masjid-you. Nyanpo mengunci **Rute A**: TV masjid TIDAK
+diubah sama sekali (zero touch, anti-regresi untuk DKM) — remote
+yang belajar protokol masjid yang sudah ada. Audit M0
+(`audit-masjid-you-sync.md`) memetakan protokol itu: envelope
+`SyncPacket {action, payload}` tanpa versi/ack, WebSocket shelf
+port 8080 tanpa autentikasi, dan Bluetooth Classic RFCOMM
+(plugin kustom `bluetooth_sync`, UUID tetap, framing 4-byte
+big-endian + JSON, handshake PIN 4 digit + nonce, chunking 32 KB
+untuk payload ≥ 64 KB).
+
+**Keputusan.**
+
+1. **Dialek terpisah di `lib/masjid/`.** Model wire masjid
+   (MosqueConfig, RunningTextMessage, MediaBanner, KasTransaction,
+   SpecialImage, BackgroundImage, StateSnapshot, PrayerType/Phase)
+   dan codec SyncPacket diport PERSIS dari `shared_models`
+   masjid-you — paritas `toMap`/`fromMap` adalah kontrak, dibuktikan
+   fixture yang dibangun dari serialisasi shared_models asli
+   (round-trip identik JSON). Dialek tidak bercampur dengan model
+   nekios-core; `MasjidStore` terpisah dari `RemoteStore`. Payload
+   `stateUpdate` yang di sumber tidak berkelas dimodelkan sebagai
+   `StatusTvMasjid` di sisi dialek.
+2. **Kontrak fire-and-forget diakui, bukan dilawan.** Protokol
+   masjid tidak punya ack/request-id. Perintah di `MasjidStore`
+   menyelesaikan `HasilPerintah` dari BUKTI SUSULAN yang disiarkan
+   TV: perintah data menunggu `stateSnapshot` berikutnya, perintah
+   kontrol menunggu `stateUpdate`/`stateSnapshot` berikutnya;
+   timeout (bawaan 6 detik) = gagal lokal dengan pesan jujur.
+   Satu perintah menunggu bukti pada satu waktu (v1, sama seperti
+   store sekolah). `triggerBeep` yang mati di sumber TIDAK dikirim
+   remote (keputusan hidupkan/hapus menunggu nyanpo).
+3. **Bluetooth: plugin lokal, framing di Dart.** masjid-you
+   memakai plugin kustom (bukan flutter_bluetooth_serial), jadi
+   dibuat plugin lokal `packages/bluetooth_rfcomm`: port separuh
+   KLIEN `bluetooth_sync` (kontrak channel, socket bonded →
+   fallback insecure refleksi, watchdog 15 detik, alur izin sama),
+   TANPA sisi host dan TANPA framing native — plugin hanya pipa
+   byte mentah. Framing 4-byte, handshake auth
+   (`authChallenge{nonce}` → `authResponse{pin, nonce}`; paket data
+   sebelum `authSuccess` dibuang), dan chunking
+   (`chunkedData`, ambang 64 KB, potongan 32 KB, satu transfer
+   aktif) hidup di Dart murni agar teruji unit; byte di kabel
+   identik dengan implementasi masjid-you. Kompresi gambar jalur
+   BT diport dari mobile_remote (latar maks 1920px JPEG q80 —
+   menghormati opsi tanpa-kompresi; logo maks 512px, alpha→PNG).
+   Jalur WebSocket selalu mengirim gambar asli tanpa chunking.
+4. **Bluetooth Android saja.** Plugin hanya terdaftar di Android;
+   di platform lain transport gagal dengan pesan manusiawi.
+   Desktop (Windows/Linux) memang boleh terbatas — keputusan
+   transport nyanpo: BT wajib untuk kedua display, target utama
+   Android.
+5. **Display bertipe.** `DisplayTersimpan` kini membawa
+   `tipe` (sekolah|masjid), `transport` (wifi|bluetooth), alamat &
+   nama Bluetooth, dan PIN BT (disimpan lokal via pola
+   shared_preferences yang ada; TIDAK pernah masuk log). Entri
+   lama tanpa field tipe dibaca sebagai sekolah — daftar lama
+   pengguna tidak berubah perilaku. PIN berganti tiap TV menyala
+   ulang (perilaku sumber); pesan gagal auth mengarahkan pengguna
+   memperbaruinya lewat dialog Ubah.
+6. **Shell mengikuti tipe display aktif.** Tab Koneksi dipakai
+   bersama (daftar satu, ketuk menyambung menurut tipe); shell
+   Beranda dkk. mengikuti sambungan yang paling baru mulai
+   menyambung. Tahap A1: Beranda masjid (cermin fase + hitung
+   mundur lokal, kas, status hasData) + aksi cepat fase
+   (skipAdhan/startIqomah/startShalat/finishShalat — wajib dialog
+   konfirmasi) dan mode (setMuted/setStandby). Tab Konten/
+   Pengaturan/Tes masjid adalah placeholder berlabel tahap
+   berikutnya — editor TIDAK dibangun tahap ini.
+7. **Bootstrap hasData=false disiapkan, belum diaktifkan.**
+   Mekanisme mobile_remote (TV kosong menerima satu dorongan
+   `updateConfig` — payload = map config itu sendiri —,
+   `updateRunningText`, `updateBanners`, `updateKas`,
+   `updateSideImages`, `updateBackgroundImages` per koneksi)
+   diimplementasikan di `MasjidStore` lewat penyedia data
+   terinjeksi dan diuji dengan penyedia palsu. Bawaan tahap A1:
+   tanpa penyedia (remote belum punya dataset lokal masjid),
+   Beranda hanya memperingatkan status TV kosong.
+
+**Konsekuensi.** Paritas dialek bergantung pada masjid-you tidak
+berubah (repo itu beku menunggu rebrand nekios-mosque); bila
+shared_models berubah, fixture + test round-trip di
+`test/masjid_model_test.dart` adalah alarm pertamanya. Bagian BT
+yang belum bisa dibuktikan tanpa perangkat sungguhan: koneksi
+RFCOMM fisik, alur izin Android 12+, dan discovery — logika
+protokolnya (framing/auth/chunk/store) teruji unit penuh, dan
+transport diuji melawan tautan palsu + server WebSocket lokal.
+Verifikasi rig (emulator) adalah tahap M3.
+
+## ADR-004: Gateway, auto-detect & shell dinamis (koreksi arsitektur, 2026-11-18)
+
+**Konteks.** ADR-003 butir 6 membuat tab Koneksi dipakai bersama dan
+shell mengikuti sambungan terakhir — pengguna tetap harus memilih
+jenis display (Sekolah/Masjid) saat menambah display, dan tab
+dashboard tampil walau belum terhubung. Pemilik produk mengoreksi
+empat hal mendasar (meniru alur gateway mobile_remote masjid-you
+yang sudah teruji): dashboard tidak boleh bisa dicapai sebelum
+koneksi sukses; pengguna tidak boleh disuruh berpikir jenis
+display; shell harus khusus per jenis display; Bluetooth adalah
+jalur penyelamat yang wajib setara Wi-Fi.
+
+**Keputusan.**
+1. **Connection guard / Gateway sebagai akar.** `LayarUtama`
+   memilih secara keras: tidak ada store terhubung →
+   `LayarGateway`; `RemoteStore` terhubung → shell sekolah;
+   `MasjidStore` terhubung → shell masjid. Tab Koneksi DIHAPUS;
+   urusan koneksi di dalam shell menyusut menjadi strip status
+   (nama display + jalur) dengan tombol Putuskan. Putus — sengaja
+   maupun tak terduga — otomatis kembali ke gateway.
+2. **Auto-detect via probing paralel.** Menyambung lewat IP hanya
+   meminta alamat IP. `PendekteksiDisplay` (`layanan/penyelidik.dart`)
+   menyelidiki DUA protokol bersamaan: nekios-core `ping` →
+   `state.snapshot` di 8920 dan warisan masjid `getInitialState` →
+   `stateSnapshot` di 8080. Jawaban valid pertama menentukan
+   identitas; nama display diambil dari payload identitas itu
+   (nama sekolah pada ringkasan jadwal / nama masjid pada
+   konfigurasi). Keduanya senyap → kegagalan jujur di gateway.
+   Penyelidikan memakai koneksi sekali-pakai yang selalu ditutup;
+   sesi sungguhan dibuka store seperti biasa.
+3. **Riwayat lahir dari bukti, bukan formulir.** Dialog tambah
+   display (dengan pemilih tipe/transport) dihapus. Entri
+   `DisplayTersimpan` dibuat/diupdate `SesiRemote` hanya setelah
+   deteksi terbukti DAN store berhasil terhubung, atau setelah
+   koneksi Bluetooth lolos. Field `tipe` kini berarti "hasil
+   deteksi terakhir", bukan pilihan pengguna. IP yang sudah
+   tersimpan disambung langsung tanpa deteksi ulang (jalur cepat,
+   setara "Perangkat Dikenal" mobile_remote). Dialog Ubah hanya
+   menyunting nama/IP/PIN.
+4. **Orkestrasi sesi tunggal.** Kelas baru `SesiRemote`
+   (`state/sesi.dart`) adalah satu-satunya pemanggil sambung/putus
+   dari UI: ia menjalankan deteksi, memilih store menurut hasil,
+   menyimpan riwayat, mengubah putus tak terduga menjadi
+   pemberitahuan gateway + tombol sambungkan-ulang (pola
+   `_handleTransportDisconnected` mobile_remote), dan menjaga
+   invariant satu sesi (store lawan diputuskan senyap bila perlu).
+   Kedua store mempertahankan kontrak ADR-001/003 apa adanya.
+5. **Dual transport di gateway.** Kartu Bluetooth berisi perangkat
+   dikenal (entri BT tersimpan, 1 ketuk, PIN tersimpan) dan
+   pencarian perangkat (discovery → dialog PIN → auth). Kanal BT
+   yang lolos auth hari ini selalu masjid — satu-satunya host
+   RFCOMM yang ada; bila host BT sekolah (nekios-core di dalam
+   RFCOMM) tiba, klasifikasi dilakukan dengan probing protokol
+   yang sama di dalam kanal, tanpa mengubah gateway.
+
+**Konsekuensi.** ADR-003 butir 6 (tab Koneksi bersama + pemilih
+tipe manual) DICABUT. `LayarKoneksi` dihapus; cakupan testnya
+pindah ke `gateway_widget_test.dart`, ditambah `deteksi_test.dart`
+(probing paralel) dan `sesi_test.dart` (orkestrasi). Sesi paralel
+dua display sekaligus (yang dulu mungkin lewat tab Koneksi) tidak
+lagi didukung — sesuai model gateway satu-display-aktif.
+
+## ADR-005: Deteksi dijamin selesai — penutupan probe tidak ditunggu + tenggat total (perbaikan bug, 2026-11-18)
+
+**Konteks.** Pada verifikasi rig laptop (M3, 18 Nov 2026 malam),
+gateway terjebak di "Mendeteksi..." selamanya ketika alamat yang
+diketik tidak lengkap ("10.0.2."). Penyelidikan: kedua penyelidik
+di `layanan/penyelidik.dart` menutup koneksi cobanya dengan
+`await ...putus()` di blok `finally`. `putus()` bermuara ke
+`sink.close()` pada kanal WebSocket yang koneksinya macet di
+tengah handshake (alamat tak terjangkau di balik firewall DROP,
+misalnya) — dan `close()` itu tidak pernah selesai. Akibatnya
+penyelidik tidak pernah kembali, `deteksi()` tidak pernah
+selesai, dan `SesiRemote` terjebak sibuk sampai aplikasi
+dimatikan paksa. Keluarga bug yang sama dengan kebuntuan
+`putuskan` MasjidStore di A1.
+
+**Keputusan.**
+
+1. **Penutupan probe tidak pernah ditunggu.** Kedua penyelidik
+   menutup koneksi cobanya lewat `_tutupDiamDiam(...)`:
+   penutupan ditembakkan (unawaited), errornya ditelan. Tidak
+   ada tindakan pemulihan yang mungkin di titik itu, dan sesi
+   sungguhan selalu membuka koneksi baru sendiri.
+2. **`deteksi()` memakai tenggat total** (bawaan 8 detik):
+   penyelidik yang tidak kunjung kembali dihitung senyap dan
+   hasil menjadi `TidakTerdeteksi`. Pertahanan berlapis di atas
+   batas per-penyelidik (3 detik) dan perbaikan butir 1.
+3. **Penyelidik dapat diinjeksi jalur palsu** (`buatKlien` /
+   `buatTransport`) supaya kondisi macet dapat direproduksi di
+   test: klien/transport yang sambungannya menggantung dan
+   penutupannya tidak pernah selesai.
+
+**Konsekuensi.** Gateway selalu pulih dari alamat rusak/tak
+terjangkau dalam waktu terbatas dan menampilkan keadaan
+tidak-terdeteksi seperti biasa. Kontrak ADR-004 tidak berubah;
+`deteksi_test.dart` bertambah grup regresi ADR-005 (4 test).
+Penutupan sesi sungguhan di store TIDAK diubah — di sana
+menunggu penutupan tetap benar.

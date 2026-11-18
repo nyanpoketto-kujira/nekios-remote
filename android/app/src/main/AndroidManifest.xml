@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Wajib di manifest utama: tanpa izin ini Android menolak semua soket
+         jaringan pada build release (SocketException errno 1) sehingga
+         WebSocket ke display sekolah/masjid mati. Selama ini tertutup oleh
+         izin INTERNET dari manifest debug/profile bawaan template. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Nekios Remote"
         android:name="${applicationName}"

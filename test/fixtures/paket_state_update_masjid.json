@@ -1,0 +1,11 @@
+{
+  "action": "stateUpdate",
+  "payload": {
+    "phase": "preIqomah",
+    "prayer": "dhuhr",
+    "remainingSeconds": 754,
+    "totalSeconds": 900,
+    "muted": false,
+    "standby": true
+  }
+}
