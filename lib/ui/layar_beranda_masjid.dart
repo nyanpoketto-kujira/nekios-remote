@@ -179,22 +179,21 @@ class _IsiBerandaMasjid extends StatelessWidget {
         if (store.tvBelumPunyaData) ...[
           const SizedBox(height: 12),
           Card(
-            color: scheme.errorContainer,
+            color: scheme.tertiaryContainer,
             child: ListTile(
               leading: Icon(
-                Icons.warning_amber_outlined,
-                color: scheme.onErrorContainer,
+                Icons.info_outline,
+                color: scheme.onTertiaryContainer,
               ),
               title: Text(
-                'TV belum punya data',
-                style: TextStyle(color: scheme.onErrorContainer),
+                'TV masih memakai data contoh',
+                style: TextStyle(color: scheme.onTertiaryContainer),
               ),
               subtitle: Text(
-                'Snapshot TV melaporkan hasData = false (TV baru / '
-                'setelah reset). Editor konten masjid menyusul tahap '
-                'berikutnya; untuk sekarang isi data lewat remote lama '
-                'atau menu TV.',
-                style: TextStyle(color: scheme.onErrorContainer),
+                'Nama dan data yang tampil di TV ini masih contoh '
+                'bawaan, belum data masjid Anda. Untuk mengisinya, '
+                'pakai aplikasi remote lama atau menu di TV.',
+                style: TextStyle(color: scheme.onTertiaryContainer),
               ),
             ),
           ),

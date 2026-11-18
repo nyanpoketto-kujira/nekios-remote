@@ -166,6 +166,41 @@ void main() {
     await bersihkan(tester);
   });
 
+  testWidgets('beranda masjid: pemberitahuan data contoh berbahasa awam', (
+    tester,
+  ) async {
+    await siapkan(tester);
+    const display = DisplayTersimpan(
+      nama: 'TV Masjid Wi-Fi',
+      ip: '192.168.1.30',
+      tipe: TipeDisplay.masjid,
+    );
+    await storeMasjid.sambungkan(display);
+    // Snapshot yang sama dengan fixture, tetapi hasData = false
+    // (TV baru / setelah reset — masih berisi data contoh bawaan).
+    final mentah =
+        jsonDecode(
+              File(
+                'test/fixtures/paket_snapshot_masjid.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    (mentah['payload'] as Map<String, dynamic>)['hasData'] = false;
+    transportMasjid.terima(SyncPacket.fromJson(jsonEncode(mentah)));
+    transportMasjid.terima(paketFixture('paket_state_update_masjid.json'));
+    await tester.pumpWidget(bungkus(LayarBerandaMasjid(store: storeMasjid)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('TV masih memakai data contoh'), findsOneWidget);
+    expect(find.textContaining('belum data masjid Anda'), findsOneWidget);
+    // Bahasa teknis internal tidak boleh bocor ke pengguna awam.
+    expect(find.textContaining('hasData'), findsNothing);
+    expect(find.textContaining('Snapshot'), findsNothing);
+
+    await bersihkan(tester);
+  });
+
   testWidgets('beranda masjid saat terputus menampilkan ajakan', (
     tester,
   ) async {
@@ -210,6 +245,43 @@ void main() {
     expect(find.byIcon(Icons.article_outlined), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsWidgets);
     expect(find.byIcon(Icons.calendar_month_outlined), findsNothing);
+
+    await bersihkan(tester);
+  });
+
+  testWidgets('shell masjid: tab Tes membuka layar Tes sungguhan (A2a)', (
+    tester,
+  ) async {
+    await siapkan(tester);
+    await tester.pumpWidget(
+      NekiosRemoteApp(
+        store: store,
+        storeMasjid: storeMasjid,
+        sesi: sesi,
+        tautan: tautan,
+      ),
+    );
+    await tester.pump();
+
+    const display = DisplayTersimpan(
+      nama: 'TV Masjid Wi-Fi',
+      ip: '192.168.1.30',
+      tipe: TipeDisplay.masjid,
+    );
+    await storeMasjid.sambungkan(display);
+    transportMasjid.terima(paketFixture('paket_snapshot_masjid.json'));
+    transportMasjid.terima(paketFixture('paket_state_update_masjid.json'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.text('Tes'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Menu Tes — Simulasi Waktu Shalat'), findsOneWidget);
+    expect(find.text('Paksa Fase — Hari Biasa'), findsOneWidget);
+    expect(find.text('Paksa Fase — Hari Jumat'), findsOneWidget);
+    expect(find.text('Tes masjid — tahap berikutnya'), findsNothing);
 
     await bersihkan(tester);
   });

@@ -321,3 +321,65 @@ tidak-terdeteksi seperti biasa. Kontrak ADR-004 tidak berubah;
 `deteksi_test.dart` bertambah grup regresi ADR-005 (4 test).
 Penutupan sesi sungguhan di store TIDAK diubah — di sana
 menunggu penutupan tetap benar.
+
+## ADR-006: Pola editor masjid A2 — salinan kerja, kirim-seketika vs draf-simpan, triggerBeep mati (2026-11-18)
+
+**Konteks.** Tahap A2 mengubah tab Konten/Pengaturan/Tes di shell
+masjid menjadi editor sungguhan dengan paritas fitur mobile_remote.
+Rencana tahap ini (`plan-a2-editor-masjid.md`) membawa 12 keputusan
+yang dikunci nyanpo 2026-11-18; ADR ini mengabadikan pola yang
+mengikat semua tahap A2a–A2e, dan A2a meletakkan fondasinya:
+metode data typed di `MasjidStore`, getter `sedangMengirim`,
+dan tab Tes sebagai konsumen pertama.
+
+**Keputusan.**
+
+1. **Salinan kerja per layar, TV tetap trust source.** Setiap
+   editor membuka salinan kerja yang di-seed dari
+   `store.snapshot`; mutasi mengirim daftar/config PENUH terbaru
+   (semua perintah `update*` bersifat full-replace). Snapshot
+   bukti yang tiba setelah perintah berhasil menjadi seed baru —
+   UI tidak pernah menebak keadaan TV dari input lokal.
+2. **Konten = kirim seketika; Pengaturan = draf + Simpan.**
+   Editor daftar di Konten (teks berjalan, banner, kas, gambar,
+   logo) mengirim pada setiap mutasi, persis perilaku
+   mobile_remote. Pengaturan adalah satu-satunya pola draf:
+   form menampung draf `MosqueConfig`, status dirty dihitung dari
+   `draf != snapshot.config` (model punya `==` penuh), dan satu
+   tombol Simpan mengirim config utuh. Selama sebuah perintah
+   menunggu bukti (`store.sedangMengirim`), kontrol editor
+   dinonaktifkan — store memang menolak perintah kedua.
+3. **`triggerBeep` dinyatakan MATI.** Nilai enum-nya
+   dipertahankan di `SyncAction` demi paritas decode dengan
+   tv_display, tetapi remote TIDAK PERNAH mengirimnya — tidak
+   sebagai kontrol Tes, tidak di tempat lain. Menghidupkannya
+   membutuhkan handler baru di tv_display, yang melanggar
+   aturan zero-touch Rute A (ADR-003). Menghidupkan beep adalah
+   keputusan terpisah di repo masjid-you, bukan di remote.
+4. **Fondasi A2a.** `MasjidStore` mendapat metode typed per
+   perintah data — `perbaruiConfig`, `perbaruiRunningText`,
+   `perbaruiBanners`, `perbaruiKas`, `perbaruiSideImages`,
+   `perbaruiBackgroundImages`, `perbaruiLogo` — dengan payload
+   identik jalur bootstrap yang sudah terbukti, semuanya lewat
+   kontrak bukti `kirimData`; plus `paksaFase` lewat
+   `kirimKontrol` (payload `{'phase': phase.name}`) dan getter
+   `sedangMengirim` yang ber-notify pada transisi tunggu/selesai.
+   Tab Tes: kartu status dari `statusTv`, tombol paksa fase
+   berkelompok Hari Biasa / Hari Jumat seperti mobile_remote,
+   konfirmasi sebelum menembak SEMUA fase kecuali Normal (jalan
+   pulang tanpa gesekan), dan Khutbah nonaktif + keterangan bila
+   `config.hasFridayPrayer == false`.
+5. **Tahapan A2 (rekap).** A2a fondasi store + Tes; A2b kerangka
+   Konten + Teks Berjalan + Banner; A2c Kas; A2d Gambar Khusus +
+   Gambar Latar + Logo; A2e Pengaturan penuh (termasuk GPS via
+   geolocator, durasi iqamah dapat diedit, `utcOffsetHours`
+   tetap read-only). Preview Simulasi Jadwal dilewati; backup
+   export/import menjadi tahap terpisah setelah A2 (jalur
+   migrasi data DKM menuju M4).
+
+**Konsekuensi.** Semua editor A2 dibangun di atas satu pola
+yang sama, jadi perilaku kirim/bukti/gagal konsisten di semua
+tab dan teruji sekali di fondasi. `triggerBeep` tidak akan
+muncul lagi sebagai pertanyaan desain di tahap A2 mana pun.
+Tidak ada perubahan di tv_display maupun di kontrak ADR-003/
+004/005.

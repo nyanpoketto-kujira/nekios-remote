@@ -183,6 +183,11 @@ class MasjidStore extends ChangeNotifier {
   Completer<void>? _penungguSnapshot;
   bool _bootstrapTerkirim = false;
 
+  /// True selama ada perintah (data/kontrol) yang sedang menunggu
+  /// bukti susulan dari TV. Editor A2 menonaktifkan kontrolnya
+  /// selama ini menyala — perintah kedua pasti ditolak store.
+  bool get sedangMengirim => _penungguBukti != null;
+
   void _selesaikanPenunggu(HasilPerintah hasil) {
     if (_penungguBukti != null && !_penungguBukti!.isCompleted) {
       _penungguBukti!.complete(hasil);
@@ -241,6 +246,7 @@ class MasjidStore extends ChangeNotifier {
     }
     final penunggu = Completer<HasilPerintah>();
     _penungguBukti = penunggu;
+    notifyListeners(); // sedangMengirim: false → true.
     if (tungguSnapshot) _penungguSnapshot = Completer<void>();
     _transport!.kirim(paket);
     final hasil = await penunggu.future.timeout(
@@ -252,6 +258,9 @@ class MasjidStore extends ChangeNotifier {
     );
     if (identical(_penungguBukti, penunggu)) _penungguBukti = null;
     _penungguSnapshot = null;
+    // sedangMengirim: true → false. Pada jalur bukti, handler paket
+    // sudah notify lebih dulu — notify ganda tidak berbahaya.
+    notifyListeners();
     return hasil;
   }
 
@@ -278,6 +287,84 @@ class MasjidStore extends ChangeNotifier {
 
   Future<HasilPerintah> aturStandby(bool standby) => kirimKontrol(
     SyncPacket(action: SyncAction.setStandby, payload: {'standby': standby}),
+  );
+
+  // --- Metode typed editor (tahap A2) -------------------------------------
+  //
+  // Satu metode per perintah data, payload PERSIS seperti yang
+  // dikirim jalur bootstrap di store ini (TV membaca payload yang
+  // sama). Semua full-replace dan menunggu bukti stateSnapshot
+  // lewat [kirimData]; editor mengisi daftar dari snapshot TV,
+  // bukan dari tebakan lokal (ADR-006).
+
+  /// Ganti konfigurasi masjid utuh — payload adalah map config itu
+  /// sendiri (TV: `MosqueConfig.fromMap(packet.payload)`).
+  Future<HasilPerintah> perbaruiConfig(MosqueConfig config) => kirimData(
+    SyncPacket(action: SyncAction.updateConfig, payload: config.toMap()),
+  );
+
+  /// Ganti seluruh daftar teks berjalan.
+  Future<HasilPerintah> perbaruiRunningText(
+    List<RunningTextMessage> pesan,
+  ) => kirimData(
+    SyncPacket(
+      action: SyncAction.updateRunningText,
+      payload: {'messages': [for (final m in pesan) m.toMap()]},
+    ),
+  );
+
+  /// Ganti seluruh daftar banner info masjid.
+  Future<HasilPerintah> perbaruiBanners(List<MediaBanner> banners) =>
+      kirimData(
+        SyncPacket(
+          action: SyncAction.updateBanners,
+          payload: {'banners': [for (final b in banners) b.toMap()]},
+        ),
+      );
+
+  /// Ganti seluruh daftar transaksi kas.
+  Future<HasilPerintah> perbaruiKas(List<KasTransaction> transaksi) =>
+      kirimData(
+        SyncPacket(
+          action: SyncAction.updateKas,
+          payload: {
+            'transactions': [for (final t in transaksi) t.toMap()],
+          },
+        ),
+      );
+
+  /// Ganti seluruh daftar gambar khusus (slot samping TV).
+  Future<HasilPerintah> perbaruiSideImages(List<SpecialImage> gambar) =>
+      kirimData(
+        SyncPacket(
+          action: SyncAction.updateSideImages,
+          payload: {'images': [for (final g in gambar) g.toMap()]},
+        ),
+      );
+
+  /// Ganti seluruh daftar gambar latar slideshow TV.
+  Future<HasilPerintah> perbaruiBackgroundImages(
+    List<BackgroundImage> gambar,
+  ) => kirimData(
+    SyncPacket(
+      action: SyncAction.updateBackgroundImages,
+      payload: {'images': [for (final g in gambar) g.toMap()]},
+    ),
+  );
+
+  /// Pasang logo masjid baru (string base64 gambar) atau hapus
+  /// logo yang terpasang (null).
+  Future<HasilPerintah> perbaruiLogo(String? logoBase64) => kirimData(
+    SyncPacket(
+      action: SyncAction.updateLogo,
+      payload: {'logoBase64': logoBase64},
+    ),
+  );
+
+  /// Paksa TV masuk fase [fase] (tab Tes) — perintah kontrol:
+  /// bukti = stateUpdate / stateSnapshot susulan dari TV.
+  Future<HasilPerintah> paksaFase(PrayerPhase fase) => kirimKontrol(
+    SyncPacket(action: SyncAction.forcePhase, payload: {'phase': fase.name}),
   );
 
   // --- Paket masuk ---------------------------------------------------------
