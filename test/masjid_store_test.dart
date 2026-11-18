@@ -213,4 +213,197 @@ void main() {
       '{"action":"getInitialState","payload":{}}',
     );
   });
+
+  group('metode typed editor (A2a)', () {
+    // Sambungkan lalu bersihkan paket sambutan (getInitialState)
+    // agar terkirim.single benar-benar paket perintah yang diuji.
+    Future<void> siap() async {
+      await store.sambungkan(displayMasjid);
+      transport.terima(paketFixture('paket_snapshot_masjid.json'));
+      await jeda();
+      transport.terkirim.clear();
+    }
+
+    void jawabSnapshot() =>
+        transport.terima(paketFixture('paket_snapshot_masjid.json'));
+
+    test('perbaruiConfig: payload = map config utuh (jalur bootstrap)',
+        () async {
+      await siap();
+      const config = MosqueConfig(name: 'Masjid Uji', address: 'Jl. Merdeka');
+      final masa = store.perbaruiConfig(config);
+      expect(transport.terkirim.single.action, SyncAction.updateConfig);
+      expect(transport.terkirim.single.payload, config.toMap());
+      jawabSnapshot();
+      expect((await masa).sukses, isTrue);
+    });
+
+    test('perbaruiRunningText: payload {messages: [toMap]}', () async {
+      await siap();
+      const pesan = [
+        RunningTextMessage(
+          id: 'rt1',
+          content: 'Kajian rutin Sabtu',
+          category: 'Kajian',
+        ),
+        RunningTextMessage(id: 'rt2', content: 'Jaga kebersihan'),
+      ];
+      final masa = store.perbaruiRunningText(pesan);
+      expect(transport.terkirim.single.action, SyncAction.updateRunningText);
+      expect(transport.terkirim.single.payload, {
+        'messages': [for (final m in pesan) m.toMap()],
+      });
+      jawabSnapshot();
+      expect((await masa).sukses, isTrue);
+    });
+
+    test('perbaruiBanners: payload {banners: [toMap]}', () async {
+      await siap();
+      const banners = [
+        MediaBanner(
+          id: 'b1',
+          header: 'DONASI',
+          title: 'Infaq Pembangunan',
+          content: 'Salurkan untuk ruang belajar',
+          footer: 'Amal Jariyah',
+          base64Image: 'abc123',
+        ),
+      ];
+      final masa = store.perbaruiBanners(banners);
+      expect(transport.terkirim.single.action, SyncAction.updateBanners);
+      expect(transport.terkirim.single.payload, {
+        'banners': [for (final b in banners) b.toMap()],
+      });
+      jawabSnapshot();
+      expect((await masa).sukses, isTrue);
+    });
+
+    test('perbaruiKas: payload {transactions: [toMap]}', () async {
+      await siap();
+      final transaksi = [
+        KasTransaction(
+          id: 'k1',
+          type: KasType.masuk,
+          amount: 2500000,
+          description: 'Infaq Jumat',
+          date: DateTime(2026, 8, 14, 9, 30),
+        ),
+      ];
+      final masa = store.perbaruiKas(transaksi);
+      expect(transport.terkirim.single.action, SyncAction.updateKas);
+      expect(transport.terkirim.single.payload, {
+        'transactions': [for (final t in transaksi) t.toMap()],
+      });
+      jawabSnapshot();
+      expect((await masa).sukses, isTrue);
+    });
+
+    test('perbaruiSideImages: payload {images: [toMap]}', () async {
+      await siap();
+      const gambar = [
+        SpecialImage(
+          id: 's1',
+          base64Image: 'c2lkZTE=',
+          caption: 'Renovasi tempat wudhu',
+        ),
+      ];
+      final masa = store.perbaruiSideImages(gambar);
+      expect(transport.terkirim.single.action, SyncAction.updateSideImages);
+      expect(transport.terkirim.single.payload, {
+        'images': [for (final g in gambar) g.toMap()],
+      });
+      jawabSnapshot();
+      expect((await masa).sukses, isTrue);
+    });
+
+    test('perbaruiBackgroundImages: payload {images: [toMap]}', () async {
+      await siap();
+      const gambar = [BackgroundImage(id: 'bg1', base64Image: 'Ymcx')];
+      final masa = store.perbaruiBackgroundImages(gambar);
+      expect(
+        transport.terkirim.single.action,
+        SyncAction.updateBackgroundImages,
+      );
+      expect(transport.terkirim.single.payload, {
+        'images': [for (final g in gambar) g.toMap()],
+      });
+      jawabSnapshot();
+      expect((await masa).sukses, isTrue);
+    });
+
+    test('perbaruiLogo: payload {logoBase64} — pasang & hapus', () async {
+      await siap();
+      final pasang = store.perbaruiLogo('bG9nbw==');
+      expect(transport.terkirim.single.action, SyncAction.updateLogo);
+      expect(transport.terkirim.single.payload, {'logoBase64': 'bG9nbw=='});
+      jawabSnapshot();
+      expect((await pasang).sukses, isTrue);
+
+      transport.terkirim.clear();
+      final hapus = store.perbaruiLogo(null);
+      expect(transport.terkirim.single.payload, {'logoBase64': null});
+      jawabSnapshot();
+      expect((await hapus).sukses, isTrue);
+    });
+
+    test('metode data gagal bila TV diam (timeout bukti snapshot)',
+        () async {
+      await siap();
+      final hasil = await store.perbaruiKas(const []);
+      expect(hasil.sukses, isFalse);
+      expect(hasil.pesan, contains('kabar susulan'));
+    });
+
+    test('perintah typed kedua ditolak selama bukti belum tiba', () async {
+      await siap();
+      final pertama = store.perbaruiRunningText(const []);
+      final kedua = await store.perbaruiConfig(const MosqueConfig());
+      expect(kedua.sukses, isFalse);
+      expect(kedua.pesan, contains('masih menunggu jawaban'));
+      jawabSnapshot();
+      expect((await pertama).sukses, isTrue);
+    });
+
+    test('paksaFase: payload {phase: name} untuk keenam fase + bukti '
+        'stateUpdate', () async {
+      await siap();
+      for (final fase in PrayerPhase.values) {
+        transport.terkirim.clear();
+        final masa = store.paksaFase(fase);
+        expect(transport.terkirim.single.action, SyncAction.forcePhase);
+        expect(transport.terkirim.single.payload, {'phase': fase.name});
+        transport.terima(paketFixture('paket_state_update_masjid.json'));
+        expect((await masa).sukses, isTrue, reason: 'fase ${fase.name}');
+      }
+    });
+
+    test('paksaFase juga tuntas dibuktikan stateSnapshot', () async {
+      await siap();
+      final masa = store.paksaFase(PrayerPhase.adhan);
+      jawabSnapshot();
+      expect((await masa).sukses, isTrue);
+    });
+
+    test('sedangMengirim berdenyut true→false pada bukti & notify',
+        () async {
+      await siap();
+      var notifikasi = 0;
+      store.addListener(() => notifikasi++);
+      expect(store.sedangMengirim, isFalse);
+      final masa = store.perbaruiRunningText(const []);
+      expect(store.sedangMengirim, isTrue);
+      expect(notifikasi, greaterThan(0));
+      jawabSnapshot();
+      expect((await masa).sukses, isTrue);
+      expect(store.sedangMengirim, isFalse);
+    });
+
+    test('sedangMengirim kembali false setelah timeout bukti', () async {
+      await siap();
+      final masa = store.perbaruiLogo(null);
+      expect(store.sedangMengirim, isTrue);
+      expect((await masa).sukses, isFalse);
+      expect(store.sedangMengirim, isFalse);
+    });
+  });
 }
