@@ -1,5 +1,5 @@
 name: nekios_remote
-description: "Remote HP untuk display Nekios (nekios-school): kendali mading, simulasi jam, logo, dan jadwal lewat WebSocket lokal."
+description: "Remote pusat Nekios: satu aplikasi untuk display sekolah (nekios-core, WS 8920) dan display masjid masjid-you (protokol warisan via WS 8080 / Bluetooth Classic — Rute A)."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -32,6 +32,16 @@ dependencies:
 
   # Pilih berkas JSON jadwal untuk dikirim ke display.
   file_picker: ^13.4.0
+
+  # Klien WebSocket dialek masjid (Rute A): kanal menuju server
+  # warisan tv_display masjid-you di port 8080.
+  web_socket_channel: ^3.0.3
+
+  # Bluetooth Classic (RFCOMM) menuju TV masjid — plugin lokal port
+  # dari bluetooth_sync masjid-you; pipa byte mentah, framing di Dart
+  # (lib/masjid/). Android saja.
+  bluetooth_rfcomm:
+    path: packages/bluetooth_rfcomm
 
 dev_dependencies:
   flutter_test:

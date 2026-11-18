@@ -4,9 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../model/display_tersimpan.dart';
 
-/// Penyimpanan lokal remote: daftar display tersimpan dan IP terakhir
-/// yang dipakai (auto-save — keputusan terkunci: IP terakhir otomatis
-/// tersimpan supaya menyambung ulang tinggal satu ketukan).
+/// Penyimpanan lokal remote: daftar display tersimpan (kini termasuk
+/// tipe display + transport + PIN Bluetooth untuk display masjid —
+/// lihat [DisplayTersimpan]) dan IP terakhir yang dipakai display
+/// SEKOLAH (auto-save — keputusan terkunci: IP terakhir otomatis
+/// tersimpan supaya menyambung ulang tinggal satu ketukan). IP display
+/// masjid hidup di entri display-nya sendiri, bukan di kunci ini.
 class PenyimpananDisplay {
   PenyimpananDisplay(this._prefs);
 

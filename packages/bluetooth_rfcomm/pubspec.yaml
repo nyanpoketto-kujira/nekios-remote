@@ -1,0 +1,28 @@
+name: bluetooth_rfcomm
+description: >-
+  Plugin Bluetooth Classic (RFCOMM) sisi klien untuk nekios-remote:
+  pipa byte mentah menuju tv_display masjid-you (Rute A, ADR-003).
+  Framing 4-byte + JSON dan handshake PIN hidup di lapisan Dart
+  (lib/masjid/), bukan di sini. Android saja.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.0
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: id.nekios.bluetooth_rfcomm
+        pluginClass: BluetoothRfcommPlugin
