@@ -10,7 +10,7 @@ enum TipeDisplay {
 
 /// Transport untuk display masjid (display sekolah selalu WebSocket
 /// nekios-core — tidak ada pilihan).
-enum TransportMasjid { wifi, bluetooth }
+enum JalurMasjid { wifi, bluetooth }
 
 /// Satu display TV yang disimpan pengguna di layar Koneksi.
 ///
@@ -30,7 +30,7 @@ class DisplayTersimpan {
     required this.nama,
     required this.ip,
     this.tipe = TipeDisplay.sekolah,
-    this.transport = TransportMasjid.wifi,
+    this.transport = JalurMasjid.wifi,
     this.alamatBluetooth = '',
     this.namaBluetooth = '',
     this.pinBluetooth = '',
@@ -39,7 +39,7 @@ class DisplayTersimpan {
   final String nama;
   final String ip;
   final TipeDisplay tipe;
-  final TransportMasjid transport;
+  final JalurMasjid transport;
 
   /// Alamat MAC perangkat Bluetooth TV masjid (transport Bluetooth).
   final String alamatBluetooth;
@@ -55,7 +55,7 @@ class DisplayTersimpan {
   bool get adalahMasjid => tipe == TipeDisplay.masjid;
 
   bool get pakaiBluetooth =>
-      adalahMasjid && transport == TransportMasjid.bluetooth;
+      adalahMasjid && transport == JalurMasjid.bluetooth;
 
   /// Alamat ringkas untuk subjudul daftar display.
   String get alamatRingkas => pakaiBluetooth
@@ -71,8 +71,8 @@ class DisplayTersimpan {
         tipe:
             TipeDisplay.values.asNameMap()[json['tipe']] ?? TipeDisplay.sekolah,
         transport:
-            TransportMasjid.values.asNameMap()[json['transport']] ??
-            TransportMasjid.wifi,
+            JalurMasjid.values.asNameMap()[json['transport']] ??
+            JalurMasjid.wifi,
         alamatBluetooth: json['alamatBluetooth'] as String? ?? '',
         namaBluetooth: json['namaBluetooth'] as String? ?? '',
         pinBluetooth: json['pinBluetooth'] as String? ?? '',
@@ -92,7 +92,7 @@ class DisplayTersimpan {
     String? nama,
     String? ip,
     TipeDisplay? tipe,
-    TransportMasjid? transport,
+    JalurMasjid? transport,
     String? alamatBluetooth,
     String? namaBluetooth,
     String? pinBluetooth,

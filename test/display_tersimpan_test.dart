@@ -9,7 +9,7 @@ void main() {
         'ip': '192.168.1.20',
       });
       expect(lama.tipe, TipeDisplay.sekolah);
-      expect(lama.transport, TransportMasjid.wifi);
+      expect(lama.transport, JalurMasjid.wifi);
       expect(lama.adalahMasjid, isFalse);
       expect(lama.pakaiBluetooth, isFalse);
       expect(lama.alamatRingkas, '192.168.1.20');
@@ -20,7 +20,7 @@ void main() {
         nama: 'TV Masjid',
         ip: '',
         tipe: TipeDisplay.masjid,
-        transport: TransportMasjid.bluetooth,
+        transport: JalurMasjid.bluetooth,
         alamatBluetooth: 'AA:BB:CC:DD:EE:FF',
         namaBluetooth: 'Masjid You TV',
         pinBluetooth: '1234',
@@ -51,7 +51,7 @@ void main() {
         'transport': 'kabel',
       });
       expect(rusak.tipe, TipeDisplay.sekolah);
-      expect(rusak.transport, TransportMasjid.wifi);
+      expect(rusak.transport, JalurMasjid.wifi);
     });
   });
 }
