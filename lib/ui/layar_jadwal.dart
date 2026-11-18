@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -34,21 +35,24 @@ class _LayarJadwalState extends State<LayarJadwal> {
   RemoteStore get store => widget.store;
 
   Future<void> _pilihBerkas() async {
-    final pilihan = await FilePicker.platform.pickFiles(
+    // API file_picker 13: metode statis, hasil berupa daftar berkas
+    // (kosong = batal), isi dibaca lewat readAsBytes().
+    final pilihan = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
-      withData: true,
     );
-    if (pilihan == null || pilihan.files.isEmpty) return;
-    final berkas = pilihan.files.first;
+    if (pilihan.isEmpty) return;
+    final berkas = pilihan.first;
     setState(() {
       _namaBerkas = berkas.name;
       _jadwal = null;
       _hasil = null;
       _pesanBaca = null;
     });
-    final bytes = berkas.bytes;
-    if (bytes == null) {
+    final Uint8List bytes;
+    try {
+      bytes = await berkas.readAsBytes();
+    } catch (_) {
       setState(() => _pesanBaca = 'Isi berkas tidak terbaca.');
       return;
     }

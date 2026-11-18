@@ -90,15 +90,18 @@ class _LayarEditorJadwalState extends State<LayarEditorJadwal> {
   }
 
   Future<void> _mulaiDariBerkas() async {
-    final pilihan = await FilePicker.platform.pickFiles(
+    // API file_picker 13: metode statis, hasil berupa daftar berkas
+    // (kosong = batal), isi dibaca lewat readAsBytes().
+    final pilihan = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
-      withData: true,
     );
-    if (pilihan == null || pilihan.files.isEmpty) return;
-    final berkas = pilihan.files.first;
-    final bytes = berkas.bytes;
-    if (bytes == null) {
+    if (pilihan.isEmpty) return;
+    final berkas = pilihan.first;
+    final Uint8List bytes;
+    try {
+      bytes = await berkas.readAsBytes();
+    } catch (_) {
       setState(() => _pesanMuat = 'Isi berkas tidak terbaca.');
       return;
     }

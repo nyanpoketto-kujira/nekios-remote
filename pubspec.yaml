@@ -31,7 +31,7 @@ dependencies:
   image: ^4.3.0
 
   # Pilih berkas JSON jadwal untuk dikirim ke display.
-  file_picker: ^8.1.7
+  file_picker: ^13.4.0
 
 dev_dependencies:
   flutter_test:
