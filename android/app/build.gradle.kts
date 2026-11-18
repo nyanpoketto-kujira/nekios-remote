@@ -6,7 +6,10 @@ plugins {
 
 android {
     namespace = "id.nekios.nekios_remote"
-    compileSdk = flutter.compileSdkVersion
+    // Eksplisit 36: rantai plugin (flutter_plugin_android_lifecycle via
+    // file_picker/image_picker) mensyaratkan compile API 36+; jangan
+    // mengandalkan bawaan templat Flutter yang bisa tertinggal.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -20,7 +23,8 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Selaras dengan compileSdk 36 di atas.
+        targetSdk = 36
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
