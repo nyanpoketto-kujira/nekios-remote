@@ -283,3 +283,41 @@ pindah ke `gateway_widget_test.dart`, ditambah `deteksi_test.dart`
 (probing paralel) dan `sesi_test.dart` (orkestrasi). Sesi paralel
 dua display sekaligus (yang dulu mungkin lewat tab Koneksi) tidak
 lagi didukung — sesuai model gateway satu-display-aktif.
+
+## ADR-005: Deteksi dijamin selesai — penutupan probe tidak ditunggu + tenggat total (perbaikan bug, 2026-11-18)
+
+**Konteks.** Pada verifikasi rig laptop (M3, 18 Nov 2026 malam),
+gateway terjebak di "Mendeteksi..." selamanya ketika alamat yang
+diketik tidak lengkap ("10.0.2."). Penyelidikan: kedua penyelidik
+di `layanan/penyelidik.dart` menutup koneksi cobanya dengan
+`await ...putus()` di blok `finally`. `putus()` bermuara ke
+`sink.close()` pada kanal WebSocket yang koneksinya macet di
+tengah handshake (alamat tak terjangkau di balik firewall DROP,
+misalnya) — dan `close()` itu tidak pernah selesai. Akibatnya
+penyelidik tidak pernah kembali, `deteksi()` tidak pernah
+selesai, dan `SesiRemote` terjebak sibuk sampai aplikasi
+dimatikan paksa. Keluarga bug yang sama dengan kebuntuan
+`putuskan` MasjidStore di A1.
+
+**Keputusan.**
+
+1. **Penutupan probe tidak pernah ditunggu.** Kedua penyelidik
+   menutup koneksi cobanya lewat `_tutupDiamDiam(...)`:
+   penutupan ditembakkan (unawaited), errornya ditelan. Tidak
+   ada tindakan pemulihan yang mungkin di titik itu, dan sesi
+   sungguhan selalu membuka koneksi baru sendiri.
+2. **`deteksi()` memakai tenggat total** (bawaan 8 detik):
+   penyelidik yang tidak kunjung kembali dihitung senyap dan
+   hasil menjadi `TidakTerdeteksi`. Pertahanan berlapis di atas
+   batas per-penyelidik (3 detik) dan perbaikan butir 1.
+3. **Penyelidik dapat diinjeksi jalur palsu** (`buatKlien` /
+   `buatTransport`) supaya kondisi macet dapat direproduksi di
+   test: klien/transport yang sambungannya menggantung dan
+   penutupannya tidak pernah selesai.
+
+**Konsekuensi.** Gateway selalu pulih dari alamat rusak/tak
+terjangkau dalam waktu terbatas dan menampilkan keadaan
+tidak-terdeteksi seperti biasa. Kontrak ADR-004 tidak berubah;
+`deteksi_test.dart` bertambah grup regresi ADR-005 (4 test).
+Penutupan sesi sungguhan di store TIDAK diubah — di sana
+menunggu penutupan tetap benar.

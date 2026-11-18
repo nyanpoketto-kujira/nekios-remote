@@ -1,5 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nekios_core/nekios_core.dart';
+import 'package:nekios_remote/layanan/klien_remote.dart';
 import 'package:nekios_remote/layanan/penyelidik.dart';
+import 'package:nekios_remote/masjid/paket_masjid.dart';
+import 'package:nekios_remote/masjid/transport_masjid.dart';
+import 'package:nekios_remote/model/display_tersimpan.dart';
 
 /// Test pendeteksi auto-detect (ADR-004): probing paralel dua
 /// protokol — jawaban valid pertama menentukan identitas.
@@ -86,4 +93,100 @@ void main() {
     expect(hasil, isA<TerdeteksiSekolah>());
     expect((hasil as TerdeteksiSekolah).namaSekolah, isEmpty);
   });
+
+  group('regresi bug hang deteksi (ADR-005)', () {
+    test('penyelidik sekolah kembali walau sambung & putus macet',
+        () async {
+      // Dulu: finally menunggu putus() yang tidak pernah selesai
+      // → penyelidik tidak pernah kembali → deteksi macet.
+      final nama = await selidikiSekolahNekios(
+        '10.0.0.9',
+        batas: const Duration(milliseconds: 100),
+        buatKlien: _KlienMacet.new,
+      ).timeout(const Duration(seconds: 5));
+      expect(nama, isNull);
+    });
+
+    test('penyelidik masjid kembali walau sambung & putus macet',
+        () async {
+      final nama = await selidikiMasjidWs(
+        '10.0.0.10',
+        batas: const Duration(milliseconds: 100),
+        buatTransport: _TransportMacet.new,
+      ).timeout(const Duration(seconds: 5));
+      expect(nama, isNull);
+    });
+
+    test('deteksi selesai di tenggat walau kedua penyelidik macet',
+        () async {
+      final deteksi = buat(
+        sekolah: (_) => Completer<String?>().future,
+        masjid: (_) => Completer<String?>().future,
+      );
+      final hasil = await deteksi
+          .deteksi(
+            '10.0.0.11',
+            batasTotal: const Duration(milliseconds: 200),
+          )
+          .timeout(const Duration(seconds: 5));
+      expect(hasil, isA<TidakTerdeteksi>());
+    });
+
+    test('penyelidik macet tidak menahan jawaban penyelidik lain',
+        () async {
+      final deteksi = buat(
+        sekolah: (_) => Completer<String?>().future,
+        masjid: (_) async => 'Masjid Al-Hikmah',
+      );
+      final hasil = await deteksi
+          .deteksi('10.0.0.12', batasTotal: const Duration(seconds: 30))
+          .timeout(const Duration(seconds: 5));
+      expect(hasil, isA<TerdeteksiMasjid>());
+    });
+  });
+}
+
+/// Klien yang sambungannya macet di tengah handshake DAN
+/// penutupannya tidak pernah selesai — mereproduksi kondisi bug
+/// lapangan 2026-11-18: `sink.close()` pada kanal WebSocket yang
+/// belum terhubung tidak kunjung kembali.
+class _KlienMacet implements KlienRemote {
+  @override
+  bool get terhubung => false;
+
+  @override
+  Stream<NekiosPacket> get paketMasuk => Stream<NekiosPacket>.empty();
+
+  @override
+  Future<void> sambung(String host, {int port = kNekiosPort}) =>
+      Completer<void>().future;
+
+  @override
+  void kirim(NekiosPacket paket) {}
+
+  @override
+  Future<void> putus() => Completer<void>().future;
+}
+
+/// Transport masjid dengan kegagalan yang sama seperti
+/// [_KlienMacet]: sambung macet, putus tidak pernah selesai.
+class _TransportMacet implements TransportMasjid {
+  @override
+  bool get terhubung => false;
+
+  @override
+  Stream<SyncPacket> get paketMasuk => Stream<SyncPacket>.empty();
+
+  @override
+  Stream<String> get kesalahan => Stream<String>.empty();
+
+  @override
+  Future<void> sambung(DisplayTersimpan display) =>
+      Completer<void>().future;
+
+  @override
+  void kirim(SyncPacket paket) {}
+
+  @override
+  Future<void> putus() => Completer<void>().future;
 }

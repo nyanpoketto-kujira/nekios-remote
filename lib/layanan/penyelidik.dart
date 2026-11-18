@@ -46,6 +46,11 @@ typedef PenyelidikProtokol = Future<String?> Function(String ip);
 /// (keputusan ADR-004): nekios-core di 8920 dan protokol warisan
 /// masjid di 8080 diselidiki bersamaan; jawaban valid pertama
 /// menentukan identitas. Kedua-duanya senyap = [TidakTerdeteksi].
+///
+/// [deteksi] DIJAMIN selesai: selain menunggu kedua penyelidik,
+/// ada tenggat total ([batasTotal]) — penyelidik yang macet di
+/// lapisan jaringan tidak boleh menggantung gateway selamanya
+/// (bug lapangan 2026-11-18, ADR-005).
 class PendekteksiDisplay {
   const PendekteksiDisplay({
     required this.selidikiSekolah,
@@ -61,19 +66,31 @@ class PendekteksiDisplay {
   final PenyelidikProtokol selidikiSekolah;
   final PenyelidikProtokol selidikiMasjid;
 
-  Future<HasilDeteksi> deteksi(String ip) {
+  Future<HasilDeteksi> deteksi(
+    String ip, {
+    Duration batasTotal = const Duration(seconds: 8),
+  }) {
     final selesai = Completer<HasilDeteksi>();
-    var sisa = 2;
-    void catat(HasilDeteksi? hasil) {
-      if (hasil != null && !selesai.isCompleted) {
-        selesai.complete(hasil);
-      }
-      sisa--;
-      if (sisa == 0 && !selesai.isCompleted) {
-        selesai.complete(const TidakTerdeteksi());
-      }
+    Timer? tenggat;
+    void tuntaskan(HasilDeteksi hasil) {
+      if (selesai.isCompleted) return;
+      // Timer tenggat dibatalkan begitu deteksi tuntas — timer
+      // yang dibiarkan menggantung juga mengotori teardown test.
+      tenggat?.cancel();
+      selesai.complete(hasil);
     }
 
+    var sisa = 2;
+    void catat(HasilDeteksi? hasil) {
+      if (hasil != null) tuntaskan(hasil);
+      sisa--;
+      if (sisa == 0) tuntaskan(const TidakTerdeteksi());
+    }
+
+    // Tenggat total: penyelidik yang tidak kunjung kembali (macet
+    // di lapisan jaringan) dihitung senyap setelah [batasTotal],
+    // supaya gateway tidak terjebak di "Mendeteksi..." selamanya.
+    tenggat = Timer(batasTotal, () => tuntaskan(const TidakTerdeteksi()));
     unawaited(
       selidikiSekolah(ip).then(
         (nama) => catat(nama == null ? null : TerdeteksiSekolah(nama)),
@@ -90,6 +107,18 @@ class PendekteksiDisplay {
   }
 }
 
+/// Menjalankan penutupan jalur TANPA menunggu hasilnya.
+///
+/// `sink.close()` pada kanal WebSocket yang koneksinya macet di
+/// tengah handshake tidak pernah selesai — menunggunya di
+/// `finally` penyelidik membuat deteksi ikut macet selamanya
+/// (bug lapangan 2026-11-18, ADR-005). Penutupan cukup
+/// ditembakkan; errornya ditelan karena tidak ada tindakan
+/// pemulihan yang mungkin di titik ini.
+void _tutupDiamDiam(Future<void> Function() tutup) {
+  unawaited(tutup().catchError((_) {}));
+}
+
 /// Penyelidik sekolah sungguhan: sambung nekios-core ke [ip], kirim
 /// `ping`, tunggu `state.snapshot` pertama. Nama identitas = nama
 /// sekolah pada ringkasan jadwal snapshot. Koneksi penyelidikan
@@ -97,8 +126,9 @@ class PendekteksiDisplay {
 Future<String?> selidikiSekolahNekios(
   String ip, {
   Duration batas = const Duration(seconds: 3),
+  KlienRemote Function()? buatKlien,
 }) async {
-  final klien = KlienRemoteNekios();
+  final klien = buatKlien?.call() ?? KlienRemoteNekios();
   try {
     await klien.sambung(ip).timeout(batas);
     final masaDepanSnapshot = klien.paketMasuk
@@ -115,7 +145,8 @@ Future<String?> selidikiSekolahNekios(
   } catch (_) {
     return null;
   } finally {
-    await klien.putus();
+    // Tidak ditunggu — lihat _tutupDiamDiam (ADR-005).
+    _tutupDiamDiam(klien.putus);
   }
 }
 
@@ -125,8 +156,9 @@ Future<String?> selidikiSekolahNekios(
 Future<String?> selidikiMasjidWs(
   String ip, {
   Duration batas = const Duration(seconds: 3),
+  TransportMasjid Function()? buatTransport,
 }) async {
-  final transport = TransportMasjidWs();
+  final transport = buatTransport?.call() ?? TransportMasjidWs();
   try {
     await transport
         .sambung(
@@ -144,6 +176,7 @@ Future<String?> selidikiMasjidWs(
   } catch (_) {
     return null;
   } finally {
-    await transport.putus();
+    // Tidak ditunggu — lihat _tutupDiamDiam (ADR-005).
+    _tutupDiamDiam(transport.putus);
   }
 }
