@@ -61,3 +61,71 @@ toleran: field hilang jatuh ke nilai aman) dan test kontrak di
 otomatis sengaja belum dibuat (mengikuti TODO di `NekiosKlien`
 nekios_core) — putus terdeteksi dari ping berkala dan pengguna
 menyambung ulang dengan satu ketukan dari daftar tersimpan.
+
+## ADR-002: Editor Jadwal visual dua tahap (R2b, 2026-11-18)
+
+**Konteks.** Konsep nyanpo: pembuatan jadwal di HP harus senyaman
+mungkin, BUKAN tabel Excel. Dua tahap: (1) Master Data guru & mapel
+dengan relasi bebas; (2) Plotting tap-to-assign per hari dengan
+opsi rentang jam untuk mapel produktif khas SMK. Hasil editor
+adalah dokumen JSON skema nekios-school yang sama dan wajib lolos
+validator §7 sebelum dikirim lewat alur R2a.
+
+**Keputusan.**
+
+1. **Relasi many-to-many adalah panduan, bukan kunci.** Master
+   data memegang relasi guru↔mapel sebagai himpunan pasangan
+   (satu guru banyak mapel; satu mapel banyak guru/team-teaching).
+   Relasi hanya memengaruhi URUTAN dan tanda bintang di pemilih
+   plotting; assign guru di luar relasi tetap sah — jadwal nyata
+   penuh pengecualian dan editor tidak boleh menghalangi. Relasi
+   awal sesi DISIMPULKAN dari pemakaian nyata di dokumen yang
+   dimuat, lalu bebas diubah di Tahap 1.
+2. **Satu kelas per sesi aktif, master data bersama.** Sesi
+   memegang dokumen asal utuh + entri hasil edit per kelas yang
+   disentuh. Berpindah kelas mempertahankan master data DAN edit
+   kelas sebelumnya. Perakitan menimpa hanya entri kelas
+   tersentuh; kelas lain, meta, struktur slot, dan field ekstra
+   (mis. `terverifikasi`, `statusDecode`) dipertahankan apa
+   adanya dari dokumen asal.
+3. **Slot kosong = entri dihilangkan, validator yang menjaga.**
+   Skema jadwal tidak mengenal entri null dan §7 mewajibkan tepat
+   satu entri per kelas di slot pelajaran. Jadi entri kosong di
+   editor dihilangkan dari dokumen rakitan; selama masih ada slot
+   kosong di kelas tersentuh, validator §7 menolak dan layar
+   Tinjau menampilkan hitungan slot kosong per hari. Tidak ada
+   representasi "kosong" baru yang diciptakan.
+4. **Hapus master data dijaga pemakaian global.** Guru/mapel
+   yang masih dipakai entri kelas MANA PUN (bukan hanya kelas
+   aktif) tidak bisa dihapus — pesannya menjelaskan alasannya.
+   Identitas guru (KG) dan mapel (kode) tidak bisa diubah setelah
+   dibuat karena semua entri merujuknya; yang bisa diubah nama,
+   nama panjang, dan warna.
+5. **Rentang berhenti di jeda.** Assign rentang mengisi slot
+   pelajaran berurutan mulai dari slot yang diketuk dan BERHENTI
+   di slot non-pelajaran pertama atau akhir hari (blok produktif
+   tidak melompati istirahat/isoma). Menimpa isi lama butuh
+   konfirmasi eksplisit; pratinjau rentang (target, ada timpa,
+   mentok) dihitung murni di domain sebelum UI bertanya.
+6. **Draf lokal per kelas, tersimpan otomatis.** Setiap perubahan
+   sesi disimpan ke `shared_preferences` (kunci per kelas aktif,
+   isi = seluruh sesi). Layar awal editor menawarkan "Lanjutkan
+   draf" vs mulai ulang dari titik awal (berkas JSON atau jadwal
+   bawaan). Mengedit tidak butuh koneksi; koneksi hanya perlu di
+   langkah kirim.
+7. **Jadwal bawaan disalin sebagai aset.** Titik awal "jadwal
+   bawaan SMKN 1 Ukui" adalah salinan persis
+   `assets/jadwal-tkj.json` nekios-school menjadi
+   `assets/jadwal-bawaan.json` di aplikasi ini. Bila jadwal induk
+   berubah di nekios-school, aset ini perlu disalin ulang manual
+   (dicatat di README).
+8. **Struktur jam tidak diedit.** Templat slot (jam, tipe, label)
+   datang dari dokumen asal dan tidak diubah di R2b — editor
+   hanya mengisi entri pelajaran. Mengubah struktur jam adalah
+   pekerjaan berkas JSON / fase berikutnya bila dibutuhkan.
+
+**Konsekuensi.** `DokumenEditor` (domain murni) adalah satu-satunya
+tempat operasi edit; UI Tahap 1/Tahap 2 hanya memanggilnya dan
+menyimpan draf lewat callback perubahan. Alur kirim R2a dipakai
+ulang apa adanya dari layar Tinjau (rakit → validasi §7 →
+ringkasan per hari → konfirmasi → `schedule.replace`).

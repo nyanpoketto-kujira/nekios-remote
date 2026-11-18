@@ -37,11 +37,38 @@ ditampilkan apa adanya dari display.
 | Mading | Editor teks mading; kirim & kosongkan ke sambutan bawaan |
 | Simulasi | Lompat ke bel berikutnya, lompat ke jam tertentu, kembali ke jam nyata |
 | Logo | Pilih gambar, perkecil maks 512px, kirim/hapus logo TV |
-| Jadwal | Pilih berkas JSON, validasi §7 di sisi remote, ringkasan, kirim `schedule.replace` |
+| Jadwal | Editor Jadwal visual (R2b) + kirim berkas JSON langsung: validasi §7 di sisi remote, ringkasan, kirim `schedule.replace` |
 
-Editor jadwal *visual* (master data guru/mapel + plotting di HP)
-adalah fase **R2b**; tab Jadwal saat ini mengirim berkas JSON yang
-dibuat di luar aplikasi.
+## Editor Jadwal visual (R2b)
+
+Dari tab **Jadwal** → **Editor Jadwal Visual**. Pembuatan jadwal
+dibagi dua tahap (konsep nyanpo — senyaman mungkin di HP, bukan
+tabel Excel):
+
+1. **Master Data** — daftar guru (nama + KG) dan mapel (kode +
+   nama panjang + warna aksen) berbentuk kartu ringkas. Relasi
+   guru↔mapel **bebas many-to-many**: satu guru bisa mengajar
+   banyak mapel, satu mapel bisa diajar banyak guru
+   (team-teaching). Relasi diatur lewat checklist saat mengetuk
+   guru/mapel, dan hanya menjadi *panduan* saat plotting (yang
+   berelasi diutamakan & bertanda bintang), bukan kunci.
+2. **Plotting** — TabBar Senin–Jumat + daftar slot vertikal.
+   Ketuk slot pelajaran → Bottom Sheet: pilih mapel & guru dari
+   master data, atur **rentang 1–4 jam** (mapel produktif langsung
+   nge-block beberapa jam berurutan; rentang berhenti di jeda
+   istirahat/isoma), terapkan atau kosongkan. Slot non-pelajaran
+   tampil redup dan tidak bisa di-assign.
+
+Titik awal sesi: **jadwal bawaan SMKN 1 Ukui** (aset aplikasi —
+salinan persis `assets/jadwal-tkj.json` nekios-school; bila jadwal
+induk berubah, salin ulang berkas ini) atau **berkas JSON** dari
+HP. Satu kelas diedit per sesi aktif; berpindah kelas
+mempertahankan master data dan hasil edit kelas lain. Draf
+tersimpan **otomatis** di HP per kelas dan bisa dilanjutkan lain
+waktu — mengedit tidak butuh koneksi. Tombol **Tinjau & Kirim**
+merakit dokumen utuh (kelas lain dipertahankan apa adanya),
+menjalankan validator §7, menampilkan ringkasan slot terisi per
+hari, lalu mengirim lewat alur yang sama dengan kirim berkas.
 
 ## Arsitektur
 
@@ -56,13 +83,19 @@ lib/
                          toleran atas payload snapshot R1)
   domain/              — fungsi murni: validasi_jadwal (§7 atas JSON
                          mentah), perintah (pembangun paket, logika
-                         lompat bel)
+                         lompat bel), editor_jadwal (model Editor
+                         Jadwal R2b: master data, relasi, assign
+                         slot/rentang, perakitan dokumen)
   layanan/             — KlienRemote (pembungkus NekiosKlien),
                          PenyimpananDisplay (shared_preferences),
+                         PenyimpananDrafEditor (draf editor),
                          olah logo (package:image)
   state/               — RemoteStore (ChangeNotifier): koneksi,
                          snapshot, pola tunggu ack/error + timeout
-  ui/                  — enam layar + widget bersama
+  ui/                  — enam layar + widget bersama + editor
+                         (master data, plotting, tinjau & kirim)
+  assets/              — jadwal-bawaan.json: salinan jadwal induk
+                         nekios-school untuk titik awal editor
 ```
 
 Keputusan arsitektur dicatat di [docs/DECISIONS.md](docs/DECISIONS.md).
@@ -72,8 +105,9 @@ Keputusan arsitektur dicatat di [docs/DECISIONS.md](docs/DECISIONS.md).
 ```bash
 flutter pub get     # nekios_core diambil dari git (repo publik)
 flutter analyze     # harus nol isu
-flutter test        # 45 test: validator, perintah, snapshot,
-                    # penyimpanan, logo, store, widget
+flutter test        # 71 test: validator, perintah, snapshot,
+                    # penyimpanan, logo, store, widget, editor
+                    # (master data, rentang, draf, plotting)
 ```
 
 CI (GitHub Actions, `.github/workflows/build.yml`) menjalankan
