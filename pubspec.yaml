@@ -40,3 +40,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    # Jadwal bawaan SMKN 1 Ukui untuk titik awal Editor Jadwal —
+    # salinan persis `assets/jadwal-tkj.json` nekios-school
+    # (lihat ADR-002).
+    - assets/jadwal-bawaan.json
