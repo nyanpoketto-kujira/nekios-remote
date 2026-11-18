@@ -18,7 +18,6 @@ void main() {
   late KlienPalsu klien;
   late RemoteStore store;
   late MasjidStore storeMasjid;
-  late TautanBluetoothPalsu tautan;
 
   Future<void> siapkan(WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({
@@ -33,7 +32,6 @@ void main() {
       penyimpanan: PenyimpananDisplay(await SharedPreferences.getInstance()),
       jedaPing: const Duration(minutes: 5),
     );
-    tautan = TautanBluetoothPalsu();
     storeMasjid = MasjidStore(buatTransport: (_) => TransportMasjidPalsu());
   }
 
