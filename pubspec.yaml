@@ -23,6 +23,10 @@ dependencies:
 
   # Daftar display tersimpan + IP terakhir (auto-save).
   shared_preferences: ^2.3.2
+  # GPS untuk tombol "Ambil Koordinat dari GPS" di Pengaturan
+  # masjid (keputusan A2 #2, paritas GpsLocationService
+  # mobile_remote).
+  geolocator: ^13.0.2
 
   # Pilih gambar logo dari galeri.
   image_picker: ^1.1.2

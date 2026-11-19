@@ -4,6 +4,11 @@
          WebSocket ke display sekolah/masjid mati. Selama ini tertutup oleh
          izin INTERNET dari manifest debug/profile bawaan template. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Lokasi: tombol "Ambil Koordinat dari GPS" di Pengaturan
+         masjid (A2e). Kasar sudah cukup untuk jadwal shalat;
+         presisi diminta saat pengambilan saja. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="Nekios Remote"
         android:name="${applicationName}"
