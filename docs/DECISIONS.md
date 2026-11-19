@@ -458,3 +458,46 @@ menghasilkan SATU paket `update*` berisi daftar penuh terbaru,
 hapus + urungkan pulang-pergi, kontrol membeku selama menunggu
 bukti, dan snapshot bukti menjadi seed baru. Tidak ada
 perubahan di tv_display, store, maupun kontrak ADR-003–006.
+
+## ADR-008: A2c — editor Kas: paritas tanpa-sunting, pemilih tanggal, ringkasan dari salinan kerja (2026-11-19)
+
+**Konteks.** Sub-tab Kas adalah editor ketiga pola daftar
+ADR-007 dan data paling sensitif di TV: `updateKas` bersifat
+full-replace atas catatan uang masjid. Keputusan A2 #10 sudah
+mengunci pemilih tanggal untuk tahap ini.
+
+**Keputusan.**
+
+1. **Pola ADR-007 utuh.** Salinan kerja di-seed dari snapshot,
+   tambah/hapus langsung mengirim daftar penuh lewat
+   `perbaruiKas`, kontrol membeku selama `sedangMengirim`,
+   hapus + urungkan = kirim ulang daftar pulih ke indeks asal,
+   kirim gagal menahan salinan apa adanya. Selama snapshot
+   belum tiba editor menahan diri ("belum ada data dari TV") —
+   editor kas tidak pernah mengirim daftar kosong hasil seed
+   yang gagal.
+2. **Tidak ada sunting transaksi (paritas mobile_remote).**
+   Mengoreksi catatan = hapus lalu tambah ulang. Dialog hanya
+   punya mode tambah.
+3. **Pemilih tanggal (keputusan #10).** Tanggal transaksi
+   dipilih lewat pemilih tanggal Material: bawaan hari ini,
+   boleh mundur (mencatat infaq yang baru disetor), tidak
+   boleh masa depan. Jam transaksi = jam saat menyimpan,
+   supaya urutan jam dalam satu hari tetap masuk akal.
+   Pemilih terinjeksi (`PemilihTanggalKas`) demi tes.
+4. **Urutan = urutan TV apa adanya.** Daftar tampil dan
+   terkirim persis urutan snapshot; transaksi baru ditambahkan
+   di AKHIR daftar, sama seperti mobile_remote (`.add`). Editor
+   tidak mengurutkan ulang — mengurutkan diam-diam akan
+   mengubah daftar TV pada mutasi yang tidak berkaitan.
+5. **Ringkasan dihitung dari salinan kerja**
+   (`KasSummary.fromTransactions`), bukan dari snapshot, supaya
+   kartu Saldo/Pemasukan/Pengeluaran selalu konsisten dengan
+   daftar yang sedang tampil — termasuk selagi menunggu bukti.
+   Format rupiah memakai `formatRupiah` Beranda; format tanggal
+   `d MMM yyyy, HH:mm` ditulis manual (repo tidak memakai
+   intl), nama bulan Indonesia disingkat (Jan, Feb, …, Agu).
+
+**Konsekuensi.** Tinggal dua sub-tab gambar + logo (A2d) yang
+mengikuti pola yang sama sebelum Pengaturan (A2e). Tidak ada
+perubahan di tv_display, store, maupun kontrak ADR-003–007.
