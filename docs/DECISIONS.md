@@ -383,3 +383,78 @@ tab dan teruji sekali di fondasi. `triggerBeep` tidak akan
 muncul lagi sebagai pertanyaan desain di tahap A2 mana pun.
 Tidak ada perubahan di tv_display maupun di kontrak ADR-003/
 004/005.
+
+## ADR-007: A2b — kerangka Konten enam sub-tab dan pola editor daftar (2026-11-18)
+
+**Konteks.** Tahap A2b mengisi tab Konten shell masjid untuk
+pertama kalinya: kerangka sub-tab plus dua editor daftar murni
+(Teks Berjalan dan Banner) yang membuktikan pola salinan kerja
+ADR-006 pada perintah data `update*` full-replace. Empat sub-tab
+lainnya (Kas, Gambar Khusus, Gambar Latar, Logo) menyusul di
+A2c/A2d.
+
+**Keputusan.**
+
+1. **Kerangka Konten = enam sub-tab tetap sejak awal.**
+   `LayarKontenMasjid` memasang `DefaultTabController` dengan
+   urutan Teks Berjalan, Banner, Kas, Gambar Khusus, Gambar
+   Latar, Logo — persis susunan Konten mobile_remote. Sub-tab
+   yang belum dibangun menampilkan `LayarTahapBerikut` dengan
+   penjelasan ramah pengguna (tanpa istilah tahap/pengembangan);
+   urutan tidak berubah antar tahap supaya kebiasaan pengguna
+   tidak bergeser.
+2. **Pola editor daftar (berlaku untuk semua editor Konten).**
+   Salinan kerja di-seed dari `store.snapshot` dan di-seed
+   ULANG setiap kali objek snapshot berganti — snapshot bukti
+   susulan adalah seed baru, bukan tebakan lokal. Selama
+   `store.sedangMengirim`, SEMUA kontrol daftar membeku (baris,
+   sakelar, tombol, tambah, seret) karena store menolak perintah
+   kedua. Kirim yang gagal menahan salinan kerja apa adanya
+   (tidak di-rollback) dan melapor lewat SnackBar jujur;
+   pengguna bisa langsung mencoba lagi. Selama snapshot belum
+   pernah tiba (`store.snapshot == null`), editor menahan diri
+   di keadaan "Belum ada data dari TV" — tidak pernah mengarang
+   daftar kosong, karena perintah `update*` bersifat
+   full-replace dan daftar kosong karangan bisa menghapus isi
+   TV. Daftar kosong hanya sah sebagai HASIL mutasi pengguna
+   atas data TV yang nyata (mis. menghapus item terakhir).
+3. **Hapus + urungkan = kirim, lalu kirim ulang.** Penghapusan
+   langsung dikirim sebagai daftar penuh terbaru (paritas
+   kirim-seketika); SnackBar keberhasilannya menawarkan
+   "Urungkan", yang mengembalikan item ke indeks asalnya dan
+   MENGIRIM ULANG daftar yang dipulihkan sebagai perintah baru
+   dengan kontrak bukti yang sama. Tidak ada penahanan kirim di
+   sisi UI: keadaan TV selalu sama dengan yang terakhir
+   dilaporkan remote.
+4. **Sakelar `isActive` teks berjalan DITAMPILKAN** (keputusan
+   #11): baris nonaktif diberi penanda "Nonaktif". Ini
+   menyimpang dari mobile_remote yang tidak pernah menampilkan
+   field ini, tetapi modelnya memang mendukung dan DKM
+   membutuhkannya untuk mematikan teks musiman tanpa
+   menghapusnya.
+5. **Gambar banner diperkecil di sisi editor saat dipilih.**
+   Helper `perkecilUntukBanner` (layanan/gambar_banner.dart):
+   decode, perkecil agar muat 1920×1080 (hanya mengecilkan,
+   rasio dipertahankan), encode JPEG kualitas 85; bytes yang
+   tidak terbaca sebagai gambar dikembalikan apa adanya dan
+   DITOLAK oleh dialog (bukan dikirim ke TV). Ini terpisah dari
+   kompresi transport Bluetooth (ADR-003): editor menyimpan
+   hasil perkecil sebagai base64 banner, transport tetap bebas
+   mengompresi lagi untuk jalur BT. Pemilih gambar dialog
+   terinjeksi (`PemilihGambarMentah`) supaya test bisa memakai
+   bytes contoh kecil tanpa plugin galeri.
+6. **Validasi simpan banner:** sah bila judul ATAU isi ATAU
+   gambar terisi (paritas mobile_remote); selain itu tombol
+   Simpan nonaktif dengan petunjuk eksplisit. Teks berjalan
+   lebih ketat: isi wajib tidak kosong setelah trim. Tambah/
+   ubah keduanya lewat dialog layar penuh; item baru memakai id
+   `millisecondsSinceEpoch` dan masuk dalam keadaan aktif.
+
+**Konsekuensi.** Pola daftar di butir 2–3 menjadi cetakan untuk
+Kas (A2c) dan kedua editor gambar (A2d): cukup mengganti model,
+metode typed store, dan isi baris/dialog. Bukti pola ini
+diuji per editor — seed tampil, tambah/ubah/sakelar/seret
+menghasilkan SATU paket `update*` berisi daftar penuh terbaru,
+hapus + urungkan pulang-pergi, kontrol membeku selama menunggu
+bukti, dan snapshot bukti menjadi seed baru. Tidak ada
+perubahan di tv_display, store, maupun kontrak ADR-003–006.

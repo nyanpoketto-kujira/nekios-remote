@@ -12,6 +12,7 @@ import 'ui/layar_beranda.dart';
 import 'ui/layar_beranda_masjid.dart';
 import 'ui/layar_gateway.dart';
 import 'ui/layar_jadwal.dart';
+import 'ui/layar_konten_masjid.dart';
 import 'ui/layar_logo.dart';
 import 'ui/layar_mading.dart';
 import 'ui/layar_simulasi.dart';
@@ -235,13 +236,7 @@ class _ShellMasjidState extends State<_ShellMasjid> {
     final store = widget.store;
     final halaman = [
       LayarBerandaMasjid(store: store),
-      const LayarTahapBerikut(
-        judul: 'Konten masjid',
-        keterangan:
-            'Fitur untuk mengatur teks berjalan, banner, kas, gambar '
-            'khusus, gambar latar, dan logo TV dari aplikasi ini '
-            'sedang disiapkan.',
-      ),
+      LayarKontenMasjid(store: store),
       const LayarTahapBerikut(
         judul: 'Pengaturan masjid',
         keterangan:

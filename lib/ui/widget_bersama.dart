@@ -157,6 +157,52 @@ class BadanBelumTerhubung extends StatelessWidget {
   }
 }
 
+/// Isi editor daftar saat TV belum mengirim snapshot sama sekali.
+///
+/// Editor Konten bersifat full-replace: daftar yang dikirim
+/// MENGGANTI seluruh isi TV. Selama snapshot belum tiba, editor
+/// menahan diri di keadaan ini — tidak pernah menebak atau
+/// mengarang daftar kosong yang bisa terlanjur terkirim.
+class BadanBelumAdaDataTv extends StatelessWidget {
+  const BadanBelumAdaDataTv({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.hourglass_empty,
+              size: 56,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Belum ada data dari TV',
+              style: theme.textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Daftar ini mengikuti data yang ada di TV. Tunggu '
+              'sebentar sampai TV mengirim datanya — bila tetap '
+              'kosong, periksa lagi koneksi ke TV.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Dialog konfirmasi singkat; true bila pengguna menyetujui.
 Future<bool> mintaKonfirmasi(
   BuildContext context, {

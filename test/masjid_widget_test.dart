@@ -285,4 +285,58 @@ void main() {
 
     await bersihkan(tester);
   });
+
+  testWidgets('shell masjid: tab Konten membuka kerangka sub-tab (A2b)', (
+    tester,
+  ) async {
+    await siapkan(tester);
+    await tester.pumpWidget(
+      NekiosRemoteApp(
+        store: store,
+        storeMasjid: storeMasjid,
+        sesi: sesi,
+        tautan: tautan,
+      ),
+    );
+    await tester.pump();
+
+    const display = DisplayTersimpan(
+      nama: 'TV Masjid Wi-Fi',
+      ip: '192.168.1.30',
+      tipe: TipeDisplay.masjid,
+    );
+    await storeMasjid.sambungkan(display);
+    transportMasjid.terima(paketFixture('paket_snapshot_masjid.json'));
+    transportMasjid.terima(paketFixture('paket_state_update_masjid.json'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.text('Konten'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    // Kerangka Konten: sub-tab Teks Berjalan aktif berisi editor
+    // yang ter-seed dari snapshot; teks placeholder lama hilang.
+    expect(
+      find.descendant(
+        of: find.byType(TabBar),
+        matching: find.text('Teks Berjalan'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(TabBar),
+        matching: find.text('Banner'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Kajian rutin Sabtu'), findsOneWidget);
+    expect(
+      find.textContaining('Fitur untuk mengatur teks berjalan, banner'),
+      findsNothing,
+    );
+
+    await bersihkan(tester);
+  });
 }
