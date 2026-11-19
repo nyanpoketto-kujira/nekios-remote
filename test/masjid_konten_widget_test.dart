@@ -11,6 +11,7 @@ import 'package:nekios_remote/model/display_tersimpan.dart';
 import 'package:nekios_remote/state/store_masjid.dart';
 import 'package:nekios_remote/tema.dart';
 import 'package:nekios_remote/ui/layar_banner_masjid.dart';
+import 'package:nekios_remote/ui/layar_kas_masjid.dart';
 import 'package:nekios_remote/ui/layar_konten_masjid.dart';
 import 'package:nekios_remote/ui/layar_teks_berjalan.dart';
 
@@ -142,11 +143,18 @@ void main() {
     // Sub-tab pertama langsung berisi editor teks berjalan.
     expect(find.text('Kajian rutin Sabtu'), findsOneWidget);
 
-    // Sub-tab yang belum dibangun tampil jujur, tanpa jargon.
+    // Sub-tab Kas sudah berisi editor sungguhan (A2c).
     await tester.tap(tabSub('Kas'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Kas masjid'), findsOneWidget);
+    expect(find.text('Infaq Jumat'), findsOneWidget);
+    expect(find.text('Saldo Kas'), findsOneWidget);
+
+    // Sub-tab yang belum dibangun tampil jujur, tanpa jargon.
+    await tester.tap(tabSub('Gambar Khusus'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Gambar khusus'), findsOneWidget);
     expect(find.textContaining('sedang disiapkan'), findsOneWidget);
     await selesai(tester);
   });
@@ -623,6 +631,261 @@ void main() {
     transport.terima(paketFixture('paket_snapshot_masjid.json'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
+    await selesai(tester);
+  });
+
+  // ------------------------------------------------------------------
+  // Kas (A2c)
+  // ------------------------------------------------------------------
+
+  testWidgets('kas: seed tampil + ringkasan konsisten dengan daftar', (
+    tester,
+  ) async {
+    await tampil(tester, LayarKasMasjid(store: store));
+    // Baris sesuai urutan TV + format tanggal & nominal bertanda.
+    expect(find.text('Infaq Jumat'), findsOneWidget);
+    expect(find.text('Masuk · 14 Agu 2026, 09:30'), findsOneWidget);
+    expect(find.text('+Rp2.500.000'), findsOneWidget);
+    expect(find.text('Listrik masjid'), findsOneWidget);
+    expect(find.text('Keluar · 15 Agu 2026, 10:00'), findsOneWidget);
+    expect(find.text('-Rp750.000'), findsOneWidget);
+    // Ringkasan: saldo = 2.500.000 - 750.000.
+    expect(find.text('Saldo Kas'), findsOneWidget);
+    expect(find.text('Rp1.750.000'), findsOneWidget);
+    expect(find.text('Pemasukan'), findsOneWidget);
+    expect(find.text('Rp2.500.000'), findsOneWidget);
+    expect(find.text('Pengeluaran'), findsOneWidget);
+    expect(find.text('Rp750.000'), findsOneWidget);
+    await selesai(tester);
+  });
+
+  testWidgets('kas: snapshot belum tiba → editor menahan diri', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 3400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await store.sambungkan(displayMasjid);
+    await tester.pumpWidget(bungkus(LayarKasMasjid(store: store)));
+    await tester.pump();
+    // Kas full-replace: tanpa snapshot, TIDAK ada jalan mengirim
+    // daftar kosong hasil seed yang gagal.
+    expect(find.text('Belum ada data dari TV'), findsOneWidget);
+    expect(find.text('Tambah'), findsNothing);
+    expect(paketAksi(SyncAction.updateKas), isEmpty);
+
+    transport.terima(paketFixture('paket_snapshot_masjid.json'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Infaq Jumat'), findsOneWidget);
+    await selesai(tester);
+  });
+
+  testWidgets('kas: tambah keluar dengan tanggal mundur terkirim sebagai '
+      'daftar penuh', (tester) async {
+    await tampil(
+      tester,
+      LayarKasMasjid(
+        store: store,
+        pemilihTanggal: (_, _) async => DateTime(2026, 8, 1),
+      ),
+    );
+    await tester.tap(find.text('Tambah'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Tambah Transaksi Kas'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, '500000');
+    await tester.pump();
+    expect(find.text('Terbaca: Rp500.000'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'Beli lampu teras');
+    await tester.pump();
+    await tester.tap(find.text('Keluar'));
+    await tester.pump();
+    await tester.tap(find.text('Pilih tanggal'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('1 Agu 2026'), findsOneWidget);
+
+    await tester.tap(find.text('Simpan'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(paketAksi(SyncAction.updateKas), hasLength(1));
+    final transaksi = daftarPaket(SyncAction.updateKas, 'transactions');
+    final fixture = payloadFixture()['kasTransactions'] as List<dynamic>;
+    expect(transaksi.length, 3);
+    expect(transaksi[0], fixture[0]);
+    expect(transaksi[1], fixture[1]);
+    // Transaksi baru DITAMBAHKAN di akhir (paritas mobile_remote).
+    expect(transaksi[2]['type'], 'keluar');
+    expect(transaksi[2]['amount'], 500000);
+    expect(transaksi[2]['description'], 'Beli lampu teras');
+    // Tanggal dari pemilih (mundur), jam dari saat menyimpan.
+    expect(
+      (transaksi[2]['date'] as String).startsWith('2026-08-01T'),
+      isTrue,
+    );
+    expect((transaksi[2]['id'] as String).isNotEmpty, isTrue);
+
+    await tester.pump(const Duration(milliseconds: 400));
+    transport.terima(
+      snapshotDengan((p) {
+        (p['kasTransactions'] as List<dynamic>).add(transaksi[2]);
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Transaksi kas ditambahkan.'), findsOneWidget);
+    // Ringkasan ikut bukti: saldo 1.750.000 - 500.000 = 1.250.000
+    // dan pengeluaran 750.000 + 500.000 = 1.250.000 — angka yang
+    // sama muncul di dua tempat, keduanya benar.
+    expect(find.text('Rp1.250.000'), findsNWidgets(2));
+    await selesai(tester);
+  });
+
+  testWidgets('kas: tambah dengan nominal/keterangan tidak sah ditolak', (
+    tester,
+  ) async {
+    await tampil(tester, LayarKasMasjid(store: store));
+    await tester.tap(find.text('Tambah'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    TextButton tombolSimpan() => tester.widget<TextButton>(
+      find.ancestor(
+        of: find.text('Simpan'),
+        matching: find.byType(TextButton),
+      ),
+    );
+
+    // Serba kosong: kedua pesan galat tampil, Simpan nonaktif.
+    expect(find.text('Nominal tidak boleh kosong.'), findsOneWidget);
+    expect(find.text('Keterangan tidak boleh kosong.'), findsOneWidget);
+    expect(tombolSimpan().onPressed, isNull);
+
+    // Nominal 0 tetap tidak sah.
+    await tester.enterText(find.byType(TextField).first, '0');
+    await tester.pump();
+    expect(find.text('Nominal harus lebih dari Rp0.'), findsOneWidget);
+    expect(tombolSimpan().onPressed, isNull);
+
+    // Nominal sah tapi keterangan masih kosong → tetap ditolak.
+    await tester.enterText(find.byType(TextField).first, '25000');
+    await tester.pump();
+    expect(tombolSimpan().onPressed, isNull);
+    expect(paketAksi(SyncAction.updateKas), isEmpty);
+
+    // Keterangan terisi → Simpan aktif.
+    await tester.enterText(find.byType(TextField).last, 'Infaq hamba Allah');
+    await tester.pump();
+    expect(tombolSimpan().onPressed, isNotNull);
+    await selesai(tester);
+  });
+
+  testWidgets('kas: hapus terkirim, Urungkan mengembalikan ke indeks asal', (
+    tester,
+  ) async {
+    await tampil(tester, LayarKasMasjid(store: store));
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(paketAksi(SyncAction.updateKas), hasLength(1));
+    var transaksi = daftarPaket(SyncAction.updateKas, 'transactions');
+    expect(transaksi.map((t) => t['id']), ['k2']);
+
+    transport.terima(
+      snapshotDengan((p) {
+        p['kasTransactions'] = [(p['kasTransactions'] as List<dynamic>)[1]];
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Transaksi dihapus.'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Urungkan'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(paketAksi(SyncAction.updateKas), hasLength(2));
+    transaksi = daftarPaket(SyncAction.updateKas, 'transactions');
+    expect(transaksi.map((t) => t['id']), ['k1', 'k2']);
+
+    transport.terima(paketFixture('paket_snapshot_masjid.json'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text('Penghapusan diurungkan.'), findsOneWidget);
+    await selesai(tester);
+  });
+
+  testWidgets('kas: kontrol membeku selama menunggu bukti', (tester) async {
+    await tampil(tester, LayarKasMasjid(store: store));
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(store.sedangMengirim, isTrue);
+
+    final tambah = tester.widget<FilledButton>(
+      find.ancestor(
+        of: find.text('Tambah'),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(tambah.onPressed, isNull);
+    final hapus = tester.widget<IconButton>(
+      find.ancestor(
+        of: find.byIcon(Icons.delete_outline),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(hapus.onPressed, isNull);
+
+    transport.terima(paketFixture('paket_snapshot_masjid.json'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(store.sedangMengirim, isFalse);
+    await selesai(tester);
+  });
+
+  testWidgets('kas: snapshot bukti menjadi seed baru', (tester) async {
+    await tampil(tester, LayarKasMasjid(store: store));
+    expect(find.text('Infaq Jumat'), findsOneWidget);
+
+    transport.terima(
+      snapshotDengan((p) {
+        (p['kasTransactions'] as List<dynamic>)[0]['description'] =
+            'Infaq Jumat (revisi TV)';
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Infaq Jumat (revisi TV)'), findsOneWidget);
+    expect(find.text('Infaq Jumat'), findsNothing);
+    await selesai(tester);
+  });
+
+  testWidgets('kas: daftar kosong yang sah tampil ramah + ringkasan nol', (
+    tester,
+  ) async {
+    await tampil(tester, LayarKasMasjid(store: store));
+    transport.terima(
+      snapshotDengan((p) {
+        p['kasTransactions'] = <dynamic>[];
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.textContaining('Belum ada catatan kas di TV'), findsOneWidget);
+    // Saldo + pemasukan + pengeluaran semuanya Rp0.
+    expect(find.text('Rp0'), findsNWidgets(3));
+    final tambah = tester.widget<FilledButton>(
+      find.ancestor(
+        of: find.text('Tambah'),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(tambah.onPressed, isNotNull);
     await selesai(tester);
   });
 }
