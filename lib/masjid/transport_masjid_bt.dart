@@ -41,7 +41,17 @@ class TransportMasjidBt implements TransportMasjid {
 
   /// Cermin preferensi `bg_send_uncompressed` mobile_remote: `true`
   /// = gambar latar dikirim asli (tetap di-chunk bila besar).
-  final bool _kirimTanpaKompresiLatar;
+  /// Bisa diubah saat transport hidup lewat
+  /// [aturKirimTanpaKompresiLatar] (keputusan A2 #9).
+  bool _kirimTanpaKompresiLatar;
+
+  @override
+  void aturKirimTanpaKompresiLatar(bool nilai) {
+    _kirimTanpaKompresiLatar = nilai;
+  }
+
+  /// Nilai preferensi kompresi gambar latar saat ini.
+  bool get kirimTanpaKompresiLatar => _kirimTanpaKompresiLatar;
 
   final Duration _batasSambung;
   final Duration _batasAuth;

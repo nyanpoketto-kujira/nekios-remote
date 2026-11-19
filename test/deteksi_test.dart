@@ -188,5 +188,8 @@ class _TransportMacet implements TransportMasjid {
   void kirim(SyncPacket paket) {}
 
   @override
+  void aturKirimTanpaKompresiLatar(bool nilai) {}
+
+  @override
   Future<void> putus() => Completer<void>().future;
 }

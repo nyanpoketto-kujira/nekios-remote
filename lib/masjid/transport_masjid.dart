@@ -41,6 +41,12 @@ abstract interface class TransportMasjid {
   /// dikompresi/di-chunk oleh transport; di WebSocket selalu asli.
   void kirim(SyncPacket paket);
 
+  /// Atur preferensi "kirim gambar latar tanpa kompresi"
+  /// (keputusan A2 #9). Hanya relevan di jalur Bluetooth — jalur
+  /// WebSocket selalu mengirim gambar asli, jadi implementasinya
+  /// boleh tidak melakukan apa-apa.
+  void aturKirimTanpaKompresiLatar(bool nilai);
+
   /// Tutup jalur. Aman dipanggil berulang.
   Future<void> putus();
 }
@@ -116,6 +122,11 @@ class TransportMasjidWs implements TransportMasjid {
     // Jalur WebSocket selalu mengirim gambar ASLI tanpa chunking —
     // sama seperti mobile_remote.
     _kanal?.sink.add(jsonEncode(paket.toMap()));
+  }
+
+  @override
+  void aturKirimTanpaKompresiLatar(bool nilai) {
+    // WebSocket selalu mengirim gambar asli; tidak ada yang diatur.
   }
 
   @override
