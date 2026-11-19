@@ -19,7 +19,7 @@ dependencies:
   nekios_core:
     git:
       url: https://github.com/nyanpoketto-kujira/nekios-core.git
-      ref: main
+      ref: feat/audio-bel
 
   # Daftar display tersimpan + IP terakhir (auto-save).
   shared_preferences: ^2.3.2
