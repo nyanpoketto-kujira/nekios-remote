@@ -552,3 +552,54 @@ di main.dart selalu memakai bawaan.
    → kirim; hapus meminta konfirmasi lalu mengirim
    `logoBase64: null`. Pratinjau membaca `snapshot.mosqueLogo`
    apa adanya.
+## ADR-010 — A2e: Pengaturan pola draf + Simpan, GPS tersuntik
+
+**Konteks.** Tab Pengaturan adalah editor terakhir A2: seluruh
+`MosqueConfig`. Berbeda dari editor Konten, mengubah belasan
+field satu per satu TIDAK boleh terkirim setengah-setengah ke
+TV (jadwal bisa timpang di tengah jalan), jadi rencana A2
+§3c/keputusan #6 mengunci pola draf + Simpan.
+
+**Keputusan.**
+
+1. **Satu-satunya pola draf di A2.** Form menampung salinan
+   config dari snapshot; "kotor" (dirty) dihitung dari `==`
+   PENUH `MosqueConfig` antara draf dan config seed — tidak
+   ada penanda perubahan manual per field. Satu ketukan Simpan
+   mengirim SATU `updateConfig` utuh lewat bukti snapshot
+   store; snapshot bukti menjadi seed draf berikutnya, dan
+   kegagalan membiarkan draf apa adanya untuk dicoba lagi.
+2. **Validasi sebelum kirim.** Nama wajib terisi; lintang
+   −90..90 dan bujur −180..180 dengan pesan galat per field;
+   tombol Simpan terkunci selama ada galat. Masukan koordinat
+   menoleransi koma desimal Indonesia (`-6,1754`). Stepper
+   menahan nilainya sendiri di rentangnya: geser waktu shalat
+   −60..+60 (keputusan cakupan plan §3c), iqamah 0..60
+   (keputusan #3: kelimanya bisa diubah), durasi fase 0..30/60,
+   khutbah 0..120.
+3. **Yang tidak diubah dari sini.** `utcOffsetHours` hanya
+   ditampilkan sebagai keterangan (keputusan #3 — diatur di
+   TV); interval slideshow tetap di Gambar Latar (keputusan
+   #5). Keduanya ikut terkirim apa adanya karena draf dibangun
+   `copyWith` dari config seed.
+4. **GPS tersuntik (keputusan #2).** Layar menerima
+   `PengambilKoordinatGps` opsional; bawaan memakai
+   `ambilKoordinatGeolocator` (layanan lokasi → izin →
+   posisi akurasi tinggi berbatas waktu → posisi terakhir
+   yang diketahui), port perilaku `GpsLocationService`
+   mobile_remote termasuk pesan-pesan manusianya. Berhasil
+   mengisi field lintang/bujur draf (belum terkirim — tetap
+   lewat Simpan); gagal menampilkan pesan tanpa menyentuh
+   draf. `geolocator` ditambah sebagai dependensi + izin
+   lokasi kasar/halus di manifes aplikasi.
+5. **Jumat sebagai sakelar induk.** `hasFridayPrayer` mati →
+   field khatib/muadzin dan stepper khutbah nonaktif, dan
+   label Dzuhur memakai `displayNameForDate` dengan nilai
+   draf sakelarnya — konsisten dengan aturan Tes (A2a).
+
+**Konsekuensi.** A2 lengkap: Beranda, Konten (6 editor), Tes,
+Pengaturan. Yang tersisa dari rencana besar Rute A hanyalah
+tahap Backup (ekspor/impor, keputusan #8 — tahap pasca-A2
+tersendiri) dan M4 (hapus mobile_remote + rebrand
+nekios-mosque) atas perintah nyanpo. Tidak ada perubahan di
+tv_display maupun kontrak ADR-003–009.
