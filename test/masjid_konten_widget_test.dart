@@ -11,7 +11,10 @@ import 'package:nekios_remote/model/display_tersimpan.dart';
 import 'package:nekios_remote/state/store_masjid.dart';
 import 'package:nekios_remote/tema.dart';
 import 'package:nekios_remote/ui/layar_banner_masjid.dart';
+import 'package:nekios_remote/ui/layar_gambar_khusus.dart';
+import 'package:nekios_remote/ui/layar_gambar_latar.dart';
 import 'package:nekios_remote/ui/layar_kas_masjid.dart';
+import 'package:nekios_remote/ui/layar_logo_masjid.dart';
 import 'package:nekios_remote/ui/layar_konten_masjid.dart';
 import 'package:nekios_remote/ui/layar_teks_berjalan.dart';
 
@@ -150,12 +153,19 @@ void main() {
     expect(find.text('Infaq Jumat'), findsOneWidget);
     expect(find.text('Saldo Kas'), findsOneWidget);
 
-    // Sub-tab yang belum dibangun tampil jujur, tanpa jargon.
+    // Sub-tab Gambar Khusus sudah berisi editor sungguhan (A2d).
     await tester.tap(tabSub('Gambar Khusus'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Gambar khusus'), findsOneWidget);
-    expect(find.textContaining('sedang disiapkan'), findsOneWidget);
+    expect(find.text('Renovasi tempat wudhu'), findsOneWidget);
+
+    // Sub-tab Logo sudah berisi editor sungguhan (A2d); fixture
+    // membawa logo sehingga tombolnya "Ganti logo".
+    await tester.tap(tabSub('Logo'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Ganti logo'), findsOneWidget);
+    expect(find.textContaining('sedang disiapkan'), findsNothing);
     await selesai(tester);
   });
 
@@ -886,6 +896,318 @@ void main() {
       ),
     );
     expect(tambah.onPressed, isNotNull);
+    await selesai(tester);
+  });
+
+  // ------------------------------------------------------------------
+  // Gambar Khusus (A2d)
+  // ------------------------------------------------------------------
+
+  testWidgets('gambar khusus: seed tampil + keterangan + sakelar', (
+    tester,
+  ) async {
+    await tampil(tester, LayarGambarKhusus(store: store));
+    expect(find.text('Gambar 1'), findsOneWidget);
+    expect(find.text('Renovasi tempat wudhu'), findsOneWidget);
+    expect(find.text('Tampil di TV'), findsOneWidget);
+    final sakelar = tester.widget<Switch>(find.byType(Switch));
+    expect(sakelar.value, isTrue);
+    expect(paketAksi(SyncAction.updateSideImages), isEmpty);
+    await selesai(tester);
+  });
+
+  testWidgets('gambar khusus: tambah memilih gambar lalu keterangan, '
+      'satu paket updateSideImages terkirim', (tester) async {
+    await tampil(
+      tester,
+      LayarGambarKhusus(
+        store: store,
+        pemilihGambarMentah: () async => pngKecil(),
+      ),
+    );
+    await tester.tap(find.text('Tambah'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    // Dialog keterangan muncul sesudah gambar dipilih & diperkecil.
+    expect(find.text('Gambar Khusus Baru'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Foto gerbang');
+    await tester.tap(find.text('Simpan'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    final terkirim = paketAksi(SyncAction.updateSideImages);
+    expect(terkirim, hasLength(1));
+    final daftar = daftarPaket(SyncAction.updateSideImages, 'images');
+    expect(daftar, hasLength(2));
+    expect(daftar[0]['id'], 's1');
+    expect(daftar[1]['caption'], 'Foto gerbang');
+    expect(daftar[1]['isActive'], isTrue);
+    // Base64 terkirim adalah JPEG hasil perkecil, bukan PNG asli.
+    expect(
+      base64Decode(daftar[1]['base64Image'] as String).length,
+      greaterThan(0),
+    );
+    transport.terima(
+      snapshotDengan((p) {
+        (p['sideImages'] as List<dynamic>).add(daftar[1]);
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Gambar khusus ditambahkan.'), findsOneWidget);
+    // Dialog keterangan sudah selesai animasi keluar.
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Foto gerbang'), findsOneWidget);
+    await selesai(tester);
+  });
+
+  testWidgets('gambar khusus: berkas bukan gambar ditolak tanpa paket', (
+    tester,
+  ) async {
+    await tampil(
+      tester,
+      LayarGambarKhusus(
+        store: store,
+        pemilihGambarMentah: () async =>
+            Uint8List.fromList([1, 2, 3]),
+      ),
+    );
+    await tester.tap(find.text('Tambah'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.textContaining('tidak terbaca sebagai gambar'),
+      findsOneWidget,
+    );
+    expect(find.text('Gambar Khusus Baru'), findsNothing);
+    expect(paketAksi(SyncAction.updateSideImages), isEmpty);
+    await selesai(tester);
+  });
+
+  testWidgets('gambar khusus: sakelar mengirim isActive terbaru', (
+    tester,
+  ) async {
+    await tampil(tester, LayarGambarKhusus(store: store));
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    final daftar = daftarPaket(SyncAction.updateSideImages, 'images');
+    expect(daftar, hasLength(1));
+    expect(daftar[0]['isActive'], isFalse);
+    transport.terima(
+      snapshotDengan((p) {
+        (p['sideImages'] as List<dynamic>)[0]['isActive'] = false;
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Tidak tampil di TV'), findsOneWidget);
+    await selesai(tester);
+  });
+
+  testWidgets('gambar khusus: hapus lalu urungkan mengembalikan '
+      'indeks asal', (tester) async {
+    await tampil(tester, LayarGambarKhusus(store: store));
+    await tester.tap(find.byTooltip('Hapus gambar'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    var daftar = daftarPaket(SyncAction.updateSideImages, 'images');
+    expect(daftar, isEmpty);
+    transport.terima(
+      snapshotDengan((p) {
+        p['sideImages'] = <dynamic>[];
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Gambar khusus dihapus.'), findsOneWidget);
+
+    // Tunggu animasi masuk snackbar selesai sebelum mengetuk
+    // aksinya (pola tes hapus kas/banner).
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Urungkan'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    daftar = daftarPaket(SyncAction.updateSideImages, 'images');
+    expect(daftar, hasLength(1));
+    expect(daftar[0]['id'], 's1');
+    transport.terima(paketFixture('paket_snapshot_masjid.json'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Renovasi tempat wudhu'), findsOneWidget);
+    await selesai(tester);
+  });
+
+  // ------------------------------------------------------------------
+  // Gambar Latar (A2d)
+  // ------------------------------------------------------------------
+
+  testWidgets('gambar latar: seed tampil + interval dari config', (
+    tester,
+  ) async {
+    await tampil(tester, LayarGambarLatar(store: store));
+    expect(find.text('Gambar 1 · Tampil di TV'), findsOneWidget);
+    expect(find.text('Gambar 2 · Tidak tampil di TV'), findsOneWidget);
+    expect(find.text('45 detik'), findsOneWidget);
+    expect(paketAksi(SyncAction.updateBackgroundImages), isEmpty);
+    expect(paketAksi(SyncAction.updateConfig), isEmpty);
+    await selesai(tester);
+  });
+
+  testWidgets('gambar latar: stepper interval mengirim updateConfig '
+      'satu field dari config utuh', (tester) async {
+    await tampil(tester, LayarGambarLatar(store: store));
+    await tester.tap(find.byTooltip('Tambah interval'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    final terkirim = paketAksi(SyncAction.updateConfig);
+    expect(terkirim, hasLength(1));
+    expect(terkirim.single.payload['backgroundSlideSeconds'], 50);
+    // Field config lain tidak berubah dari fixture.
+    expect(
+      terkirim.single.payload['name'],
+      payloadFixture()['config']['name'],
+    );
+    transport.terima(
+      snapshotDengan((p) {
+        (p['config'] as Map<String, dynamic>)['backgroundSlideSeconds'] =
+            50;
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('50 detik'), findsOneWidget);
+    await selesai(tester);
+  });
+
+  testWidgets('gambar latar: tambah menyimpan berkas ASLI apa adanya', (
+    tester,
+  ) async {
+    final mentah = pngKecil();
+    await tampil(
+      tester,
+      LayarGambarLatar(
+        store: store,
+        pemilihGambarMentah: () async => mentah,
+      ),
+    );
+    await tester.tap(find.text('Tambah'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    final daftar = daftarPaket(SyncAction.updateBackgroundImages, 'images');
+    expect(daftar, hasLength(3));
+    // Tanpa perkecil/encode ulang: base64 persis berkas pilihan.
+    expect(daftar[2]['base64Image'], base64Encode(mentah));
+    expect(daftar[2]['isActive'], isTrue);
+    transport.terima(
+      snapshotDengan((p) {
+        (p['backgroundImages'] as List<dynamic>).add(daftar[2]);
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Gambar latar ditambahkan.'), findsOneWidget);
+    await selesai(tester);
+  });
+
+  testWidgets('gambar latar: sakelar tanpa kompresi diteruskan ke '
+      'store + transport', (tester) async {
+    await tampil(tester, LayarGambarLatar(store: store));
+    expect(store.kirimLatarTanpaKompresi, isFalse);
+    final sakelar = find.descendant(
+      of: find.byType(SwitchListTile),
+      matching: find.byType(Switch),
+    );
+    await tester.tap(sakelar);
+    await tester.pump();
+    expect(store.kirimLatarTanpaKompresi, isTrue);
+    expect(transport.tanpaKompresiTerakhir, isTrue);
+    await selesai(tester);
+  });
+
+  test('store: preferensi tanpa kompresi dititipkan saat menyambung '
+      'dan callback persistensi terpanggil', () async {
+    final transport2 = TransportMasjidPalsu();
+    var tersimpan = false;
+    final store2 = MasjidStore(
+      buatTransport: (_) => transport2,
+      kirimLatarTanpaKompresiAwal: true,
+      onKirimLatarTanpaKompresiBerubah: (nilai) => tersimpan = nilai,
+    );
+    addTearDown(store2.dispose);
+    await store2.sambungkan(displayMasjid);
+    // Nilai awal langsung diterapkan ke transport yang baru dibuat.
+    expect(transport2.tanpaKompresiTerakhir, isTrue);
+    store2.aturKirimLatarTanpaKompresi(false);
+    expect(transport2.tanpaKompresiTerakhir, isFalse);
+    expect(tersimpan, isFalse);
+  });
+
+  // ------------------------------------------------------------------
+  // Logo (A2d)
+  // ------------------------------------------------------------------
+
+  testWidgets('logo: seed berlogo menampilkan Ganti + Hapus', (
+    tester,
+  ) async {
+    await tampil(tester, LayarLogoMasjid(store: store));
+    expect(find.text('Ganti logo'), findsOneWidget);
+    expect(find.text('Hapus logo'), findsOneWidget);
+    expect(paketAksi(SyncAction.updateLogo), isEmpty);
+    await selesai(tester);
+  });
+
+  testWidgets('logo: pilih gambar mengirim updateLogo hasil olah 512px', (
+    tester,
+  ) async {
+    await tampil(
+      tester,
+      LayarLogoMasjid(
+        store: store,
+        pemilihGambarMentah: () async => pngKecil(),
+      ),
+    );
+    await tester.tap(find.text('Ganti logo'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    final terkirim = paketAksi(SyncAction.updateLogo);
+    expect(terkirim, hasLength(1));
+    final logoBaru = terkirim.single.payload['logoBase64'] as String;
+    expect(logoBaru, isNot('bG9nbw=='));
+    expect(base64Decode(logoBaru).length, greaterThan(0));
+    transport.terima(
+      snapshotDengan((p) {
+        p['mosqueLogo'] = logoBaru;
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Logo masjid diperbarui.'), findsOneWidget);
+    await selesai(tester);
+  });
+
+  testWidgets('logo: hapus lewat konfirmasi mengirim logoBase64 null', (
+    tester,
+  ) async {
+    await tampil(tester, LayarLogoMasjid(store: store));
+    await tester.tap(find.text('Hapus logo'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Hapus logo masjid?'), findsOneWidget);
+    await tester.tap(find.text('Hapus'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    final terkirim = paketAksi(SyncAction.updateLogo);
+    expect(terkirim, hasLength(1));
+    expect(terkirim.single.payload['logoBase64'], isNull);
+    transport.terima(
+      snapshotDengan((p) {
+        p['mosqueLogo'] = null;
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.text('Pilih logo'), findsOneWidget);
+    expect(find.text('Belum ada logo'), findsOneWidget);
     await selesai(tester);
   });
 }
