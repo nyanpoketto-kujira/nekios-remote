@@ -2,23 +2,25 @@ import 'package:flutter/material.dart';
 
 import '../state/store_masjid.dart';
 import 'layar_banner_masjid.dart';
+import 'layar_kas_masjid.dart';
 import 'layar_teks_berjalan.dart';
 import 'widget_bersama.dart';
 
-/// Tab Konten shell masjid (tahap A2b): kerangka enam sub-tab
-/// editor — Teks Berjalan, Banner, Kas, Gambar Khusus, Gambar
-/// Latar, Logo — mengikuti susunan Konten mobile_remote.
+/// Tab Konten shell masjid: kerangka enam sub-tab editor —
+/// Teks Berjalan, Banner, Kas, Gambar Khusus, Gambar Latar,
+/// Logo — mengikuti susunan Konten mobile_remote.
 ///
-/// A2b mengisi dua sub-tab pertama dengan editor sungguhan;
-/// empat sisanya menyusul bertahap (Kas A2c, gambar & logo A2d)
-/// dan sementara menampilkan penjelasan jujur lewat
-/// [LayarTahapBerikut]. Urutan sub-tab tidak berubah antar
-/// tahap supaya kebiasaan pengguna tidak bergeser.
+/// Teks Berjalan + Banner terisi di A2b, Kas di A2c; gambar &
+/// logo menyusul di A2d dan sementara menampilkan penjelasan
+/// jujur lewat [LayarTahapBerikut]. Urutan sub-tab tidak
+/// berubah antar tahap supaya kebiasaan pengguna tidak
+/// bergeser.
 class LayarKontenMasjid extends StatelessWidget {
   const LayarKontenMasjid({
     super.key,
     required this.store,
     this.pemilihGambarMentah,
+    this.pemilihTanggalKas,
   });
 
   final MasjidStore store;
@@ -26,6 +28,10 @@ class LayarKontenMasjid extends StatelessWidget {
   /// Diteruskan ke editor banner (lihat [PemilihGambarMentah]);
   /// null = pemilih galeri bawaan.
   final PemilihGambarMentah? pemilihGambarMentah;
+
+  /// Diteruskan ke editor kas (lihat [PemilihTanggalKas]);
+  /// null = pemilih tanggal bawaan.
+  final PemilihTanggalKas? pemilihTanggalKas;
 
   @override
   Widget build(BuildContext context) {
@@ -53,12 +59,9 @@ class LayarKontenMasjid extends StatelessWidget {
                   store: store,
                   pemilihGambarMentah: pemilihGambarMentah,
                 ),
-                const LayarTahapBerikut(
-                  judul: 'Kas masjid',
-                  keterangan:
-                      'Fitur untuk mencatat uang masuk dan keluar '
-                      'kas masjid serta melihat saldonya dari '
-                      'aplikasi ini sedang disiapkan.',
+                LayarKasMasjid(
+                  store: store,
+                  pemilihTanggal: pemilihTanggalKas,
                 ),
                 const LayarTahapBerikut(
                   judul: 'Gambar khusus',
