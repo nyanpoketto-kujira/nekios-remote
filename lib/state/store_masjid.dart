@@ -39,12 +39,34 @@ class MasjidStore extends ChangeNotifier {
     required this._buatTransport,
     this.penyediaBootstrap,
     this.batasBukti = const Duration(seconds: 6),
-  });
+    bool kirimLatarTanpaKompresiAwal = false,
+    this.onKirimLatarTanpaKompresiBerubah,
+  }) : kirimLatarTanpaKompresi = kirimLatarTanpaKompresiAwal;
 
   final PabrikTransportMasjid _buatTransport;
 
   /// Lihat [PenyediaBootstrapMasjid]; null = bootstrap nonaktif.
   final PenyediaBootstrapMasjid? penyediaBootstrap;
+
+  /// Dipanggil setiap preferensi [kirimLatarTanpaKompresi] berubah
+  /// (main.dart menambatkannya ke SharedPreferences).
+  final void Function(bool nilai)? onKirimLatarTanpaKompresiBerubah;
+
+  /// Preferensi "kirim gambar latar tanpa kompresi" di jalur
+  /// Bluetooth (keputusan A2 #9; cermin `bg_send_uncompressed`
+  /// mobile_remote). Berlaku seketika pada transport yang hidup
+  /// dan dititipkan ke setiap transport baru saat menyambung.
+  bool kirimLatarTanpaKompresi;
+
+  /// Ubah preferensi [kirimLatarTanpaKompresi]: teruskan ke
+  /// transport aktif (bila ada) dan kabari penambat persistensi.
+  void aturKirimLatarTanpaKompresi(bool nilai) {
+    if (kirimLatarTanpaKompresi == nilai) return;
+    kirimLatarTanpaKompresi = nilai;
+    _transport?.aturKirimTanpaKompresiLatar(nilai);
+    onKirimLatarTanpaKompresiBerubah?.call(nilai);
+    notifyListeners();
+  }
 
   /// Batas menunggu bukti susulan sebelum perintah dianggap gagal.
   final Duration batasBukti;
@@ -75,6 +97,7 @@ class MasjidStore extends ChangeNotifier {
 
     final transport = _buatTransport(display);
     _transport = transport;
+    transport.aturKirimTanpaKompresiLatar(kirimLatarTanpaKompresi);
     _langgananPaket = transport.paketMasuk.listen(_tanganiPaket);
     _langgananKesalahan = transport.kesalahan.listen(_tanganiKesalahan);
     try {

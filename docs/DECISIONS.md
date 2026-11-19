@@ -501,3 +501,54 @@ mengunci pemilih tanggal untuk tahap ini.
 **Konsekuensi.** Tinggal dua sub-tab gambar + logo (A2d) yang
 mengikuti pola yang sama sebelum Pengaturan (A2e). Tidak ada
 perubahan di tv_display, store, maupun kontrak ADR-003–007.
+
+## ADR-009: A2d — editor gambar & logo: pipa base64 bersama, interval satu-field, sakelar tanpa-kompresi diteruskan ke transport (2026-11-19)
+
+**Konteks.** Tiga sub-tab Konten terakhir (Gambar Khusus,
+Gambar Latar, Logo) berbagi pipa gambar base64 besar.
+Keputusan A2 yang terkunci untuk tahap ini: #4 logo tinggal
+di Konten, #5 interval slideshow dikirim sebagai satu
+`updateConfig` dari layar Gambar Latar, #9 sakelar "kirim
+tanpa kompresi" (Bluetooth) ikut dibangun — padahal preferensi
+itu sebelumnya `final` dari konstruktor transport dan pabrik
+di main.dart selalu memakai bawaan.
+
+**Keputusan.**
+
+1. **Pola ADR-007 utuh** untuk kedua editor daftar (salinan
+   kerja, kirim seketika, beku selama `sedangMengirim`, hapus
+   + urungkan, tahan diri selama snapshot belum tiba).
+2. **Gambar Khusus diperkecil saat dipilih** memakai helper
+   banner (muat 1920×1080, JPEG q85 — "maks 1080p" rencana
+   §3a); berkas yang tidak terbaca sebagai gambar ditolak
+   (helper mengembalikan bytes apa adanya → pemanggil
+   membandingkannya). Keterangan opsional diisi lewat dialog
+   sesudah memilih dan tidak bisa disunting setelah tersimpan
+   (paritas mobile_remote: koreksi = hapus + tambah ulang).
+3. **Gambar Latar disimpan apa adanya.** Base64 yang terkirim
+   adalah berkas pilihan persis — perkecilan adalah urusan
+   transport Bluetooth saat mengirim, dan Wi-Fi selalu
+   mengirim asli. Tes mengunci ini (base64 terkirim == base64
+   berkas pilihan).
+4. **Interval slideshow = satu field config (keputusan #5).**
+   Stepper 5–300 detik langkah 5 mengirim `perbaruiConfig`
+   berisi config snapshot saat itu dengan hanya
+   `backgroundSlideSeconds` diganti (model meng-clamp).
+   Bukti snapshot menjadi nilai tampil berikutnya.
+5. **Sakelar tanpa-kompresi diteruskan, bukan dititipkan
+   diam-diam (keputusan #9).** Antarmuka `TransportMasjid`
+   mendapat `aturKirimTanpaKompresiLatar(bool)`: Bluetooth
+   mengubah flag-nya yang kini bisa diubah saat hidup,
+   WebSocket tidak melakukan apa-apa (selalu asli).
+   `MasjidStore` memegang nilai preferensi, meneruskannya ke
+   transport aktif setiap berubah, dan menerapkannya ke
+   setiap transport baru saat menyambung. Persistensi lokal
+   HP (SharedPreferences `remote.kirimLatarTanpaKompresi.v1`)
+   ditambatkan dari main.dart lewat nilai awal + callback —
+   store sendiri tidak tahu-menahu soal SharedPreferences.
+6. **Logo berlaku seketika** lewat `perbaruiLogo` (bukan
+   bagian dari Simpan config): pilih → `olahLogoKeBase64`
+   (maks 512px, helper yang sama dengan layar Logo sekolah)
+   → kirim; hapus meminta konfirmasi lalu mengirim
+   `logoBase64: null`. Pratinjau membaca `snapshot.mosqueLogo`
+   apa adanya.

@@ -15,6 +15,9 @@ class TransportMasjidPalsu implements TransportMasjid {
   bool _terhubung = false;
 
   final List<SyncPacket> terkirim = [];
+
+  /// Nilai terakhir [aturKirimTanpaKompresiLatar] yang diterima.
+  bool? tanpaKompresiTerakhir;
   DisplayTersimpan? displayTerakhir;
 
   final StreamController<SyncPacket> _paket =
@@ -40,6 +43,11 @@ class TransportMasjidPalsu implements TransportMasjid {
 
   @override
   void kirim(SyncPacket paket) => terkirim.add(paket);
+
+  @override
+  void aturKirimTanpaKompresiLatar(bool nilai) {
+    tanpaKompresiTerakhir = nilai;
+  }
 
   @override
   Future<void> putus() async {
