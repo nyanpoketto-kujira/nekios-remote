@@ -87,6 +87,42 @@ class RingkasanJadwalSnapshot {
       );
 }
 
+/// Pengumuman bel terakhir yang diputar display (dari snapshot).
+class BelTerakhirSnapshot {
+  const BelTerakhirSnapshot({required this.berkas, required this.pada});
+
+  /// Nama berkas aset di display, mis. `audio/bel_jam_3.mp3`.
+  final String berkas;
+
+  /// Momen efektif pemutarannya di display.
+  final DateTime pada;
+
+  factory BelTerakhirSnapshot.fromJson(Map<String, dynamic> json) =>
+      BelTerakhirSnapshot(
+        berkas: json['berkas'] as String? ?? '',
+        pada: DateTime.tryParse(json['pada'] as String? ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0),
+      );
+}
+
+/// Label manusiawi untuk nama berkas pengumuman bel display —
+/// dipakai kartu Bel di Beranda ("Bel terakhir: Jam pelajaran ke-3").
+String labelPengumumanBel(String berkas) {
+  final nama = berkas.split('/').last.replaceAll('.mp3', '');
+  if (nama.startsWith('bel_jam_')) {
+    return 'Jam pelajaran ke-${nama.substring('bel_jam_'.length)}';
+  }
+  return switch (nama) {
+    'bel_istirahat' => 'Istirahat',
+    'bel_isoma' => 'ISOMA',
+    'bel_upacara' => 'Upacara',
+    'bel_rohis' => 'Rohis',
+    'bel_kegiatan' => 'Kegiatan',
+    'bel_pulang' => 'Pulang',
+    _ => nama,
+  };
+}
+
 /// Potret keadaan display pada saat snapshot dibuat.
 ///
 /// [jamEfektif] & [sisaKeBelDetik] adalah nilai PADA SAAT snapshot
@@ -104,6 +140,8 @@ class SnapshotDisplay {
     required this.belBerikutnya,
     required this.sisaKeBelDetik,
     required this.jadwal,
+    this.belAktif = true,
+    this.belTerakhir,
   });
 
   /// Nilai `status` mentah dari payload (untuk diagnosis).
@@ -136,6 +174,14 @@ class SnapshotDisplay {
 
   /// Ringkasan jadwal termuat; null bila display belum memuat jadwal.
   final RingkasanJadwalSnapshot? jadwal;
+
+  /// Saklar bel sekolah di display (ADR-017 nekios-school). Display
+  /// lama yang belum mengirim field ini dianggap belnya aktif.
+  final bool belAktif;
+
+  /// Pengumuman bel terakhir yang diputar display; null bila belum
+  /// pernah berbunyi sejak display menyala.
+  final BelTerakhirSnapshot? belTerakhir;
 
   StatusDisplay get status => StatusDisplay.dariString(statusMentah);
 
@@ -176,6 +222,7 @@ class SnapshotDisplay {
         nilai is String ? DateTime.tryParse(nilai) : null;
     final slotJson = payload['slotAktif'];
     final jadwalJson = payload['jadwal'];
+    final belTerakhirJson = payload['belTerakhir'];
     return SnapshotDisplay(
       statusMentah: payload['status'] as String? ?? '',
       jamEfektif: parseTanggal(payload['jamEfektif']),
@@ -190,6 +237,10 @@ class SnapshotDisplay {
       sisaKeBelDetik: (payload['sisaKeBelDetik'] as num?)?.toInt(),
       jadwal: jadwalJson is Map<String, dynamic>
           ? RingkasanJadwalSnapshot.fromJson(jadwalJson)
+          : null,
+      belAktif: payload['belAktif'] as bool? ?? true,
+      belTerakhir: belTerakhirJson is Map<String, dynamic>
+          ? BelTerakhirSnapshot.fromJson(belTerakhirJson)
           : null,
     );
   }

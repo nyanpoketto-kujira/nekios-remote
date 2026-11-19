@@ -55,6 +55,16 @@ void main() {
       expect(perintahHapusLogo().payload?['imageBase64'], '');
     });
 
+    test('audio.konfigurasi & audio.tes (panel bel)', () {
+      final atur = perintahAturBel(false);
+      expect(atur.type, TipePaket.audioKonfigurasi);
+      expect(atur.payload?['belAktif'], isFalse);
+      expect(perintahAturBel(true).payload?['belAktif'], isTrue);
+      final tes = perintahTesBel();
+      expect(tes.type, TipePaket.audioTes);
+      expect(tes.payload, isNull);
+    });
+
     test('clock.clear & ping & schedule.replace', () {
       expect(perintahKembaliKeJamNyata().type, TipePaket.clockClear);
       expect(perintahPing().type, TipePaket.ping);

@@ -603,3 +603,29 @@ tahap Backup (ekspor/impor, keputusan #8 — tahap pasca-A2
 tersendiri) dan M4 (hapus mobile_remote + rebrand
 nekios-mosque) atas perintah nyanpo. Tidak ada perubahan di
 tv_display maupun kontrak ADR-003–009.
+
+## ADR-011 — Kartu Bel di Beranda sekolah (audio.konfigurasi + audio.tes)
+
+Konteks (2026-11-19): nekios-school mendapat fitur Audio Bel
+(ADR-017 di repo itu): pengumuman statis ter-bundel di TV, saklar
+`belAktif` persisten di TV, dan Floating Spotlight Pergantian Jam.
+Protokol nekios-core bertambah `audio.konfigurasi` + `audio.tes`
+dan field snapshot `belAktif` + `belTerakhir`. Remote cukup menjadi
+panel kendalinya — tanpa generator/cache audio apa pun.
+
+Keputusan:
+
+- **Kartu "Bel Sekolah" di Beranda shell sekolah** (bukan tab baru):
+  `SwitchListTile` yang nilainya SELALU dari snapshot TV (bukan
+  tebakan lokal), info "Bel terakhir: <label> • <jam>" dari
+  `belTerakhir` (nama berkas diterjemahkan `labelPengumumanBel`),
+  dan tombol "Tes Bel". Perintah dibangun pembangun murni
+  `perintahAturBel` / `perintahTesBel` di `lib/domain/perintah.dart`
+  dan dikirim lewat `kirimPerintah` yang menunggu `ack` seperti
+  perintah sekolah lain; hasil ditampilkan `tampilkanHasil`.
+- **Parser snapshot toleran**: display lama tanpa field bel dibaca
+  sebagai belAktif=true dan belTerakhir=null — kartu tetap tampil
+  wajar sebelum TV diperbarui.
+- **Demo pameran tidak butuh jalur khusus**: "Lompat ke bel
+  berikutnya" di Simulasi (ADR-001) memicu bel + spotlight di TV
+  karena keduanya menempel pada transisi jam efektif di sisi TV.

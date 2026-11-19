@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../domain/perintah.dart';
 import '../model/snapshot.dart';
 import '../state/remote_store.dart';
 import 'widget_bersama.dart';
@@ -139,6 +140,8 @@ class _IsiBeranda extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        _KartuBel(store: store, snapshot: snapshot),
+        const SizedBox(height: 12),
         Card(
           child: ListTile(
             leading: const Icon(Icons.campaign_outlined),
@@ -204,6 +207,90 @@ class _IsiBeranda extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Kartu "Bel Sekolah" di Beranda (ADR-017 nekios-school): saklar
+/// bel aktif mengikuti snapshot TV (perintah `audio.konfigurasi`),
+/// info bel terakhir yang berbunyi, dan tombol Tes Bel
+/// (`audio.tes`). Keadaan saklar SELALU dari snapshot terbaru —
+/// bukan tebakan lokal — jadi yang tampil adalah keadaan TV
+/// sebenarnya.
+class _KartuBel extends StatefulWidget {
+  const _KartuBel({required this.store, required this.snapshot});
+
+  final RemoteStore store;
+  final SnapshotDisplay snapshot;
+
+  @override
+  State<_KartuBel> createState() => _KartuBelState();
+}
+
+class _KartuBelState extends State<_KartuBel> {
+  bool _mengirim = false;
+
+  Future<void> _aturBel(bool aktif) async {
+    setState(() => _mengirim = true);
+    final hasil = await widget.store.kirimPerintah(perintahAturBel(aktif));
+    if (!mounted) return;
+    setState(() => _mengirim = false);
+    tampilkanHasil(
+      context,
+      hasil,
+      aktif ? 'Bel sekolah diaktifkan.' : 'Bel sekolah dimatikan.',
+    );
+  }
+
+  Future<void> _tesBel() async {
+    setState(() => _mengirim = true);
+    final hasil = await widget.store.kirimPerintah(perintahTesBel());
+    if (!mounted) return;
+    setState(() => _mengirim = false);
+    tampilkanHasil(context, hasil, 'Tes bel diputar di TV.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = widget.snapshot;
+    final terakhir = snapshot.belTerakhir;
+    return Card(
+      child: Column(
+        children: [
+          SwitchListTile(
+            secondary: const Icon(Icons.notifications_active_outlined),
+            title: const Text('Bel sekolah'),
+            subtitle: Text(
+              snapshot.belAktif
+                  ? 'Berbunyi otomatis tiap pergantian jam di TV'
+                  : 'Diam — pergantian jam tanpa suara',
+            ),
+            value: snapshot.belAktif,
+            onChanged: _mengirim ? null : _aturBel,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    terakhir == null
+                        ? 'Belum pernah berbunyi sejak TV menyala'
+                        : 'Bel terakhir: '
+                              '${labelPengumumanBel(terakhir.berkas)} • '
+                              '${formatJamMenit(terakhir.pada)}',
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _mengirim ? null : _tesBel,
+                  icon: const Icon(Icons.play_arrow_outlined),
+                  label: const Text('Tes Bel'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
