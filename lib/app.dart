@@ -15,6 +15,7 @@ import 'ui/layar_jadwal.dart';
 import 'ui/layar_konten_masjid.dart';
 import 'ui/layar_logo.dart';
 import 'ui/layar_mading.dart';
+import 'ui/layar_pengaturan_masjid.dart';
 import 'ui/layar_simulasi.dart';
 import 'ui/layar_tes_masjid.dart';
 import 'ui/widget_bersama.dart';
@@ -216,8 +217,8 @@ class _ShellSekolahState extends State<_ShellSekolah> {
   }
 }
 
-/// Shell MASJID: Beranda + Tes (A2a) berfungsi; Konten/Pengaturan
-/// masih placeholder tahap A2 berikutnya (Rute A).
+/// Shell MASJID: Beranda (A1), Tes (A2a), Konten (A2b–A2d),
+/// dan Pengaturan (A2e) — keempat tab berisi editor sungguhan.
 class _ShellMasjid extends StatefulWidget {
   const _ShellMasjid({required this.store, required this.sesi});
 
@@ -237,13 +238,7 @@ class _ShellMasjidState extends State<_ShellMasjid> {
     final halaman = [
       LayarBerandaMasjid(store: store),
       LayarKontenMasjid(store: store),
-      const LayarTahapBerikut(
-        judul: 'Pengaturan masjid',
-        keterangan:
-            'Fitur untuk mengatur nama masjid, jadwal shalat, durasi '
-            'iqamah, petugas Jumat, dan lainnya dari aplikasi ini '
-            'sedang disiapkan.',
-      ),
+      LayarPengaturanMasjid(store: store),
       LayarTesMasjid(store: store),
     ];
     final tabAman = _tab >= halaman.length ? 0 : _tab;
