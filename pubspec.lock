@@ -466,11 +466,9 @@ packages:
   nekios_core:
     dependency: "direct main"
     description:
-      path: "."
-      ref: main
-      resolved-ref: a73fd39a4277c4c707c75507223b4705966b785d
-      url: "https://github.com/nyanpoketto-kujira/nekios-core.git"
-    source: git
+      path: "../nekios-core"
+      relative: true
+    source: path
     version: "0.1.0"
   package_config:
     dependency: transitive

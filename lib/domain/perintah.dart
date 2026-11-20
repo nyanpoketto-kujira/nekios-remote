@@ -67,3 +67,15 @@ NekiosPacket perintahKembaliKeJamNyata() =>
 /// `schedule.replace` — payload adalah objek jadwal utuh.
 NekiosPacket perintahGantiJadwal(Map<String, dynamic> jadwal) =>
     NekiosPacket(type: TipePaket.scheduleReplace, payload: jadwal);
+
+/// `audio.konfigurasi` — atur saklar bel sekolah di display
+/// (tersimpan persisten di display; ADR-017 nekios-school).
+NekiosPacket perintahAturBel(bool aktif) => NekiosPacket(
+  type: TipePaket.audioKonfigurasi,
+  payload: {'belAktif': aktif},
+);
+
+/// `audio.tes` — display memutar pengumuman bel slot berjalan
+/// sebagai uji suara (selalu berbunyi, juga saat bel nonaktif).
+NekiosPacket perintahTesBel() =>
+    const NekiosPacket(type: TipePaket.audioTes);

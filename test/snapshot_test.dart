@@ -80,6 +80,38 @@ void main() {
     });
   });
 
+  group('field bel (ADR-017 nekios-school)', () {
+    test('belAktif & belTerakhir terbaca dari payload', () {
+      final payload = payloadSnapshotContoh()
+        ..['belAktif'] = false
+        ..['belTerakhir'] = {
+          'berkas': 'audio/bel_jam_3.mp3',
+          'pada': '2026-11-18T09:05:00',
+        };
+      final snap = SnapshotDisplay.fromPayload(payload);
+      expect(snap.belAktif, isFalse);
+      expect(snap.belTerakhir?.berkas, 'audio/bel_jam_3.mp3');
+      expect(snap.belTerakhir?.pada, DateTime(2026, 11, 18, 9, 5));
+    });
+
+    test('display lama tanpa field bel: aktif + belum pernah berbunyi', () {
+      final snap = SnapshotDisplay.fromPayload(payloadSnapshotContoh());
+      expect(snap.belAktif, isTrue);
+      expect(snap.belTerakhir, isNull);
+    });
+
+    test('labelPengumumanBel menerjemahkan nama berkas', () {
+      expect(labelPengumumanBel('audio/bel_jam_3.mp3'), 'Jam pelajaran ke-3');
+      expect(labelPengumumanBel('audio/bel_jam_10.mp3'), 'Jam pelajaran ke-10');
+      expect(labelPengumumanBel('audio/bel_istirahat.mp3'), 'Istirahat');
+      expect(labelPengumumanBel('audio/bel_isoma.mp3'), 'ISOMA');
+      expect(labelPengumumanBel('audio/bel_upacara.mp3'), 'Upacara');
+      expect(labelPengumumanBel('audio/bel_rohis.mp3'), 'Rohis');
+      expect(labelPengumumanBel('audio/bel_kegiatan.mp3'), 'Kegiatan');
+      expect(labelPengumumanBel('audio/bel_pulang.mp3'), 'Pulang');
+    });
+  });
+
   group('formatSisaDetik', () {
     test('format MM:SS dan J:MM:SS', () {
       expect(formatSisaDetik(1776), '29:36');
